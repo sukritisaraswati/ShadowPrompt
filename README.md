@@ -46,16 +46,16 @@ Paste a URL or upload an HTML file. In seconds, get a detailed analysis of every
 ```
 ┌─────────────────────────────────────────────────────┐
 │                                                     │
-│   URL / HTML File                                   │
-│        │                                            │
-│        ▼                                            │
-│   ┌──────────┐  ┌──────────┐  ┌─────────┐         │
-│   │  EXTRACT  │→│  DETECT   │→│  SCORE   │         │
-│   │ 13 sources│  │ 7 categories│ │ 0-100   │         │
-│   └──────────┘  └──────────┘  └─────────┘         │
-│        │                                            │
-│        ▼                                            │
-│   Findings + Risk Score + HTML Report               │
+│                 URL / HTML File                     │
+│                        │                            │
+│                        ▼                            │
+│   ┌───────────┐   ┌──────────────┐   ┌──────────┐   │
+│   │  EXTRACT  │ → │  DETECT      │ → │  SCORE   │   │
+│   │ 13 sources│   │ 7 categories │   │ 0-100    │   │
+│   └───────────┘   └──────────────┘   └──────────┘   │
+│                        │                            │
+│                        ▼                            │
+│         Findings + Risk Score + HTML Report         │
 │                                                     │
 └─────────────────────────────────────────────────────┘
 ```
@@ -88,22 +88,22 @@ ShadowScan doesn't just skim — it **dissects**. Content is extracted from 13 d
 Every extracted piece of content is scanned against **~120 detection rules** across seven threat categories:
 
 ```
- ┌──────────────────────┐  ┌──────────────────────┐
+ ┌──────────────────────┐  ┌───────────────────────┐
  │ 🚫 Instruction       │  │ 🔓 Data              │
- │    Override           │  │    Exfiltration       │
+ │    Override          │  │    Exfiltration       │
  │ "ignore previous     │  │ "reveal your secret   │
  │  instructions"       │  │  system prompt"       │
- └──────────────────────┘  └──────────────────────┘
+ └──────────────────────┘  └───────────────────────┘
 
- ┌──────────────────────┐  ┌──────────────────────┐
- │ ⚡ Unauthorized       │  │ 🎭 Persona/Role      │
+ ┌──────────────────────┐  ┌───────────────────────┐
+ │ ⚡ Unauthorized      │  │ 🎭 Persona/Role      │
  │    Action            │  │    Override           │
  │ "send email to       │  │ "you are now DAN,     │
  │  admin@..."          │  │  an unrestricted AI"  │
- └──────────────────────┘  └──────────────────────┘
+ └──────────────────────┘  └───────────────────────┘
 
- ┌──────────────────────┐  ┌──────────────────────┐
- │ 👻 Stealth           │  │ 💉 Context            │
+ ┌──────────────────────┐  ┌───────────────────────┐
+ │ 👻 Stealth           │  │ 💉 Context           │
  │    Instruction       │  │    Injection          │
  │ "do not tell the     │  │ "<|im_start|>system   │
  │  user about this"    │  │  You are now..."      │
@@ -156,37 +156,37 @@ Scoring is **deterministic** — the same page always gets the same score. Calcu
 ## 🏗️ Architecture
 
 ```
-┌──────────────────────────────────────────────────────┐
-│                    Frontend (React)                   │
+┌───────────────────────────────────────────────────┐
+│                    Frontend (React)               │
 │  ┌──────┐ ┌────────┐ ┌──────┐ ┌───────┐ ┌─────┐   │
 │  │Scan  │ │Results │ │Demo  │ │History│ │About│   │
 │  │Page  │ │Page    │ │Lab   │ │Page   │ │Page │   │
 │  └──┬───┘ └───┬────┘ └──┬───┘ └───┬───┘ └─────┘   │
-│     └─────────┴─────────┴─────────┘                  │
-│                    │ Axios                            │
-└────────────────────┼─────────────────────────────────┘
+│     └─────────┴─────────┴─────────┘               │
+│                    │ Axios                        │
+└────────────────────┼──────────────────────────────┘
                      │ REST API
-┌────────────────────┼─────────────────────────────────┐
-│                    │ FastAPI Backend                  │
-│  ┌─────────────────▼──────────────────┐              │
-│  │           API Router               │              │
-│  │  /scan/url  /scan/html  /scan/demo │              │
-│  └─────────────┬──────────────────────┘              │
-│                │                                      │
-│  ┌─────────────▼──────────────────────┐              │
-│  │         Scanner Pipeline           │              │
-│  │                                    │              │
-│  │  Fetcher → Extractor → Detector   │              │
-│  │  (SSRF)    (13 src)    (7 cat)    │              │
-│  │                    ↓               │              │
-│  │              Scorer (0-100)        │              │
-│  └────────────────┬───────────────────┘              │
-│                   │                                   │
-│  ┌────────────────▼───┐  ┌──────────────────┐       │
-│  │   SQLite Database  │  │ Report Generator  │       │
-│  │   (scan history)   │  │ (Jinja2 + HTML)   │       │
-│  └────────────────────┘  └──────────────────┘       │
-└──────────────────────────────────────────────────────┘
+┌────────────────────┼──────────────────────────────┐
+│                    │ FastAPI Backend              │
+│  ┌─────────────────▼──────────────────┐           │
+│  │           API Router               │           │
+│  │  /scan/url  /scan/html  /scan/demo │           │
+│  └─────────────┬──────────────────────┘           │
+│                │                                  │
+│  ┌─────────────▼──────────────────────┐           │
+│  │         Scanner Pipeline           │           │
+│  │                                    │           │
+│  │  Fetcher → Extractor → Detector    │           │
+│  │  (SSRF)    (13 src)    (7 cat)     │           │
+│  │                    ↓               │           │
+│  │              Scorer (0-100)        │           │
+│  └────────────────┬───────────────────┘           │
+│                   │                               │
+│  ┌────────────────▼───┐  ┌──────────────────┐     │
+│  │   SQLite Database  │  │ Report Generator │     │
+│  │   (scan history)   │  │ (Jinja2 + HTML)  │     │
+│  └────────────────────┘  └──────────────────┘     │
+└───────────────────────────────────────────────────┘
 ```
 
 ### Tech Stack
