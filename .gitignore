@@ -1,0 +1,32 @@
+# Documents & temp files
+*.txt
+*.docx
+
+# Utility scripts (not part of the project)
+generate_blueprint.py
+extract_docx.ps1
+read_docx.ps1
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+*.db
+.env
+
+# Node
+node_modules/
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
