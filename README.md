@@ -107,7 +107,7 @@ Every extracted piece of content is scanned against **~120 detection rules** acr
  │    Instruction       │  │    Injection          │
  │ "do not tell the     │  │ "<|im_start|>system   │
  │  user about this"    │  │  You are now..."      │
- └──────────────────────┘  └──────────────────────┘
+ └──────────────────────┘  └───────────────────────┘
 
           ┌──────────────────────┐
           │ 🔗 Chained Payload   │
