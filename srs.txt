@@ -1,0 +1,1205 @@
+SOFTWARE REQUIREMENTS SPECIFICATION (SRS)
+
+System Name: Prompt Injection Attack Simulator & Webpage Scanner
+Document Version: 1.0
+Document Date: June 14, 2026
+Document Status: Initial Technical Baseline
+
+
+1. INTRODUCTION
+
+1.1 Purpose
+
+This Software Requirements Specification defines the functional behavior,
+interfaces, architecture, data structures, security controls, quality
+attributes, and verification requirements for the Prompt Injection Attack
+Simulator & Webpage Scanner.
+
+1.2 Intended Audience
+
+- Software developers
+- QA and security testers
+- Project reviewers
+- DevOps engineers
+- AI security researchers
+- Technical project supervisors
+
+1.3 System Scope
+
+The system receives a URL or HTML file, obtains static HTML, extracts visible
+and hidden text-bearing sources, detects suspicious natural-language
+instructions, calculates a risk score, returns structured findings, and
+generates defensive reports.
+
+1.4 Definitions
+
+AI Agent:
+An AI system that interprets information and may use tools or take actions.
+
+Indirect Prompt Injection:
+An instruction placed in external untrusted content with the intention of
+influencing an AI model or agent that later processes that content.
+
+Finding:
+A structured record describing suspicious content, its location, evidence,
+matched rules, score contribution, impact, and remediation.
+
+Static Scan:
+Analysis of received HTML without executing JavaScript or rendering a dynamic
+browser DOM.
+
+Hidden Content:
+Text not normally visible to a user due to HTML attributes, inline CSS, or
+non-visual HTML locations such as comments and metadata.
+
+SSRF:
+Server-Side Request Forgery, in which a server is induced to request an
+unauthorized internal or sensitive network resource.
+
+
+2. OVERALL SYSTEM DESCRIPTION
+
+2.1 Product Perspective
+
+The system is a client-server web application composed of:
+
+- React frontend.
+- FastAPI backend.
+- Static HTML analysis engine.
+- Rule-based prompt-injection detector.
+- Risk scoring engine.
+- Report generator.
+- Optional persistence layer.
+- Safe local demo pages.
+
+2.2 High-Level Architecture
+
+User Browser
+    |
+    | HTTPS / JSON / multipart form data
+    v
+React Frontend
+    |
+    | REST API
+    v
+FastAPI Application
+    |
+    +-- Input Validation
+    +-- Secure URL Fetcher
+    +-- HTML Parser and Extractors
+    +-- Detection Engine
+    +-- Risk Engine
+    +-- Recommendation Engine
+    +-- Report Generator
+    +-- Optional Scan Repository
+
+2.3 Operating Environment
+
+Development:
+- Windows, Linux, or macOS.
+- Python 3.11 or later.
+- Node.js 20 LTS or later.
+- Modern Chromium, Firefox, or Safari browser.
+
+Suggested Production:
+- Frontend deployed to Vercel or equivalent static hosting.
+- Backend deployed to Render, container hosting, or equivalent.
+- HTTPS required.
+- PostgreSQL recommended if persistent multi-user history is enabled.
+- SQLite acceptable for local demonstration only.
+
+2.4 Technology Baseline
+
+Frontend:
+- React
+- React Router
+- Tailwind CSS
+- Axios or Fetch API
+
+Backend:
+- Python
+- FastAPI
+- Pydantic
+- BeautifulSoup4
+- httpx
+- Standard regex library
+
+Testing:
+- pytest
+- FastAPI TestClient or httpx test client
+- Vitest
+- React Testing Library
+- Optional Playwright for browser-level UI tests
+
+Reporting:
+- Server-rendered HTML templates
+- Optional WeasyPrint, ReportLab, or Playwright PDF export
+
+
+3. SYSTEM CONSTRAINTS
+
+SC-001: MVP scans shall not execute retrieved or uploaded JavaScript.
+
+SC-002: MVP URL scans shall analyze a single retrieved HTML document and shall
+not crawl linked pages.
+
+SC-003: MVP hidden-style analysis shall support HTML attributes and inline CSS.
+External stylesheet and computed-style analysis requires rendered scan mode.
+
+SC-004: All page content shall be treated as untrusted data.
+
+SC-005: Detection results shall be described as heuristic.
+
+SC-006: The system shall not automatically follow instructions detected in
+scanned content.
+
+SC-007: The backend shall not send scanned content to an external AI service in
+the MVP.
+
+
+4. COMPONENT REQUIREMENTS
+
+4.1 Frontend Application
+
+The frontend shall:
+
+- Capture URL and file inputs.
+- Submit scans to the backend.
+- Display progress, errors, and completed results.
+- Render evidence as escaped text.
+- Provide score, severity, filters, and recommendations.
+- Display and launch demo scans.
+- Request report generation.
+- Display scan history when enabled.
+
+Suggested pages:
+
+- /                Dashboard
+- /scan            Scanner
+- /results/:id     Results
+- /demo            Demo Lab
+- /reports/:id     Report preview
+- /about           Methodology and limitations
+
+4.2 API Application
+
+The FastAPI application shall:
+
+- Validate request data.
+- Enforce upload and response limits.
+- Retrieve public HTTP/HTTPS targets securely.
+- Parse and analyze HTML.
+- Return consistent JSON responses.
+- Generate reports.
+- Expose demo page metadata.
+- Apply security middleware and configured CORS policy.
+
+4.3 Secure URL Fetcher
+
+The fetcher shall:
+
+- Accept only http and https schemes.
+- Reject URLs containing credentials.
+- Reject empty or malformed hostnames.
+- Normalize internationalized domain names safely.
+- Resolve DNS before connection.
+- Reject any resolved non-public IP address.
+- Revalidate every redirect target.
+- Apply connection, read, write, and total timeouts.
+- Enforce a maximum redirect count.
+- Limit allowed destination ports.
+- Stream responses and stop after the configured byte limit.
+- Accept HTML-compatible response types only.
+- Use a fixed application User-Agent.
+- Avoid forwarding user-supplied authorization headers or cookies.
+- Avoid using environment proxy settings unless explicitly configured.
+
+Blocked targets shall include:
+
+- Loopback addresses.
+- Private network addresses.
+- Link-local addresses.
+- Multicast addresses.
+- Unspecified and reserved addresses.
+- IPv4 and IPv6 equivalents of blocked ranges.
+- Cloud instance metadata addresses.
+- Hostnames that resolve to any blocked address.
+
+The implementation shall mitigate DNS rebinding by connecting only to a
+validated resolved address or otherwise guaranteeing that the actual
+connection destination is the validated address.
+
+4.4 HTML Parser and Extractors
+
+The parser shall use BeautifulSoup with a configured parser. It shall create
+source records before detection.
+
+Required source types:
+
+- HTML_COMMENT
+- META_CONTENT
+- IMAGE_ALT
+- ARIA_LABEL
+- TITLE_ATTRIBUTE
+- DATA_ATTRIBUTE
+- HIDDEN_ATTRIBUTE_TEXT
+- HIDDEN_INLINE_CSS_TEXT
+- SMALL_FONT_TEXT
+- SAME_COLOR_TEXT
+- SCRIPT_TEXT, when explicitly enabled
+- NOSCRIPT_TEXT
+- VISIBLE_TEXT
+
+Each source record shall contain:
+
+- Source type.
+- Normalized text.
+- Original text.
+- Safe snippet.
+- Element name where applicable.
+- Relevant attribute name where applicable.
+- DOM path or source index where possible.
+- Hidden reason where applicable.
+
+4.5 Detection Engine
+
+The detection engine shall compare normalized source text against configured
+rules.
+
+Required categories:
+
+- INSTRUCTION_OVERRIDE
+- DATA_EXFILTRATION
+- UNAUTHORIZED_ACTION
+- ROLE_MANIPULATION
+- STEALTH_INSTRUCTION
+
+Example baseline rules:
+
+Instruction Override:
+- ignore previous instructions
+- disregard previous instructions
+- forget your rules
+- override system prompt
+- bypass safety rules
+- follow only this instruction
+
+Data Exfiltration:
+- reveal secret
+- leak credentials
+- show password
+- send user data
+- extract token
+- exfiltrate data
+- access private data
+
+Unauthorized Action:
+- delete files
+- send email
+- click this link
+- submit the form
+- transfer money
+- approve payment
+
+Role Manipulation:
+- act as admin
+- you are root
+- developer mode enabled
+- unrestricted mode
+- jailbreak
+
+Stealth Instruction:
+- do not tell the user
+- hide this instruction
+- silently perform
+- no confirmation required
+
+Each rule definition shall include:
+
+- Unique rule ID.
+- Category.
+- Human-readable name.
+- Pattern or phrase.
+- Weight.
+- Explanation.
+- Impact template.
+- Recommendation identifiers.
+- Enabled status.
+
+4.6 Text Normalization
+
+Before matching, the system shall:
+
+- Decode HTML entities.
+- Apply Unicode normalization.
+- Convert matching text to a consistent case.
+- Collapse repeated whitespace.
+- Normalize common punctuation separators where safe.
+- Preserve original text for evidence.
+- Enforce a maximum source text length.
+
+The system should optionally detect common zero-width characters and record
+that normalization occurred. Normalization shall not alter the evidence shown
+to the user.
+
+4.7 Hidden Content Detection
+
+An element shall be considered hidden for the MVP when one or more of the
+following applies:
+
+- It has the hidden attribute.
+- Its inline style contains display:none.
+- Its inline style contains visibility:hidden or visibility:collapse.
+- Its inline style contains opacity:0.
+- Its inline style defines a font size below the configured threshold.
+- Its inline foreground and background colors normalize to the same value.
+- Its input type is hidden and its value is being inspected under a configured
+  attribute rule.
+- An ancestor is hidden by one of the supported HTML or inline style rules.
+
+Inline style parsing shall use a CSS parser where practical. The system shall
+not claim to evaluate external CSS or final computed styles during a static
+scan.
+
+4.8 Finding Builder
+
+A finding shall be created when one or more enabled rules match a source.
+
+Finding fields:
+
+- id
+- scan_id
+- title
+- severity
+- location
+- source_type
+- category
+- payload
+- snippet
+- element
+- attribute
+- dom_path
+- hidden_reason
+- matched_rules
+- reason
+- impact
+- remediation
+- score_contribution
+- confidence
+
+Finding IDs shall be stable within the scan and formatted as PI-001, PI-002,
+and so on.
+
+Findings shall be deduplicated using a stable combination of source identity,
+normalized payload, and matched rule identifiers.
+
+4.9 Risk Engine
+
+The risk engine shall calculate scores using configurable source and rule
+weights.
+
+Suggested formula:
+
+finding_score =
+    source_location_weight
+    + highest_matched_rule_weight
+    + category_adjustments
+
+scan_score =
+    sum(unique finding scores)
+    + additional_unique_source_bonus
+
+final_score = minimum(100, maximum(0, scan_score))
+
+The implementation may refine the formula, but it shall:
+
+- Remain deterministic.
+- Avoid duplicate inflation.
+- Be covered by boundary tests.
+- Return a breakdown.
+- Cap the final score at 100.
+
+Severity mapping:
+
+- 0 to 20: Low
+- 21 to 50: Medium
+- 51 to 80: High
+- 81 to 100: Critical
+
+Finding severity may be derived from its individual score using configured
+thresholds. Scan severity shall always derive from the final scan score.
+
+4.10 Recommendation Engine
+
+The recommendation engine shall map source types and detection categories to
+actionable controls, including:
+
+- Strip HTML comments before LLM ingestion when comments are unnecessary.
+- Exclude hidden content from summarization inputs.
+- Sanitize metadata, alt text, ARIA text, titles, and data attributes.
+- Keep system and developer instructions separate from untrusted page data.
+- Mark external content clearly as data, not instructions.
+- Restrict agent tools through allowlists.
+- Apply least-privilege permissions.
+- Require explicit user confirmation for sensitive actions.
+- Validate tool arguments independently of model output.
+- Log and monitor AI-agent actions.
+- Prevent secrets from entering model context unnecessarily.
+- Apply output checks and policy enforcement outside the model.
+
+4.11 Report Generator
+
+The report generator shall receive a validated scan result object and create a
+self-contained HTML report.
+
+Required report sections:
+
+- Report title.
+- Executive summary.
+- Scan target.
+- Scan date and identifier.
+- Overall score and severity.
+- Severity and category summary.
+- Technical findings.
+- Evidence.
+- Impact.
+- Recommendations.
+- Methodology.
+- Limitations.
+- Defensive-use disclaimer.
+
+Report security requirements:
+
+- Escape all dynamic content.
+- Do not include executable user scripts.
+- Do not fetch untrusted remote assets.
+- Use local or embedded styles.
+- Use a restrictive Content Security Policy when served in a browser.
+- Sanitize filenames used in download headers.
+
+4.12 Persistence Layer
+
+Persistence is optional for the MVP. When enabled, it shall store:
+
+- Scan identifier.
+- Scan type.
+- Sanitized target display value.
+- Filename or URL as permitted by privacy configuration.
+- Timestamp.
+- Duration.
+- Risk score.
+- Severity.
+- Finding count.
+- Structured findings.
+- Scanner version.
+
+Raw uploaded HTML and complete fetched HTML shall not be stored by default.
+
+
+5. EXTERNAL INTERFACE REQUIREMENTS
+
+5.1 General API Conventions
+
+Base path: /api/v1
+
+Data format: JSON except file upload and downloadable reports.
+
+Timestamps: ISO 8601 in UTC.
+
+Identifiers: UUID for scans and reports.
+
+Successful responses: Appropriate 2xx status.
+
+Validation errors: 422.
+
+Blocked or disallowed target: 400 or 403 according to API policy.
+
+Oversized input: 413.
+
+Unsupported media type: 415.
+
+Retrieval timeout or upstream failure: 502 or 504.
+
+Unexpected server error: 500 with no internal stack trace.
+
+5.2 POST /api/v1/scans/url
+
+Purpose:
+Scan static HTML retrieved from a URL.
+
+Request:
+
+{
+  "url": "https://example.com"
+}
+
+Success response:
+
+{
+  "scan_id": "uuid",
+  "scan_type": "url",
+  "target": "https://example.com",
+  "final_url": "https://example.com",
+  "scanned_at": "2026-06-14T12:00:00Z",
+  "duration_ms": 420,
+  "risk_score": 78,
+  "severity": "High",
+  "finding_count": 2,
+  "score_breakdown": [],
+  "findings": [],
+  "recommendations": [],
+  "limitations": []
+}
+
+5.3 POST /api/v1/scans/html
+
+Purpose:
+Scan an uploaded HTML file.
+
+Content-Type:
+multipart/form-data
+
+Fields:
+- file: Required .html or .htm file.
+
+Response:
+Same scan result structure as the URL endpoint, with filename instead of URL
+target metadata.
+
+5.4 GET /api/v1/scans/{scan_id}
+
+Purpose:
+Retrieve a stored scan when persistence is enabled.
+
+Response:
+Complete scan result.
+
+5.5 GET /api/v1/demo-pages
+
+Purpose:
+List available safe demo pages.
+
+Response:
+
+{
+  "items": [
+    {
+      "id": "comment-injection",
+      "name": "HTML Comment Injection",
+      "description": "Suspicious instruction in an HTML comment.",
+      "expected_location": "HTML Comment",
+      "expected_severity": "High"
+    }
+  ]
+}
+
+5.6 POST /api/v1/demo-pages/{demo_id}/scan
+
+Purpose:
+Scan a bundled demo page without accepting an arbitrary filesystem path.
+
+5.7 POST /api/v1/reports
+
+Purpose:
+Generate a report from a stored scan ID or a validated scan result.
+
+Preferred request:
+
+{
+  "scan_id": "uuid",
+  "format": "html"
+}
+
+Response:
+- HTML report download or report metadata with a short-lived download URL.
+
+5.8 GET /api/v1/health
+
+Purpose:
+Provide a basic service health response without exposing configuration or
+dependency secrets.
+
+Response:
+
+{
+  "status": "ok",
+  "version": "1.0.0"
+}
+
+5.9 Error Response Schema
+
+{
+  "error": {
+    "code": "BLOCKED_TARGET",
+    "message": "The requested target is not allowed.",
+    "details": []
+  },
+  "request_id": "uuid"
+}
+
+
+6. DATA REQUIREMENTS
+
+6.1 Scan Result Model
+
+ScanResult:
+- scan_id: UUID
+- scan_type: URL | HTML_FILE | DEMO
+- target: string
+- final_url: optional string
+- filename: optional string
+- scanned_at: datetime
+- duration_ms: integer
+- scanner_version: string
+- content_size_bytes: integer
+- risk_score: integer from 0 to 100
+- severity: LOW | MEDIUM | HIGH | CRITICAL
+- finding_count: integer
+- findings: list of Finding
+- score_breakdown: list of ScoreItem
+- recommendations: list of Recommendation
+- limitations: list of string
+
+6.2 Finding Model
+
+Finding:
+- id: string
+- title: string
+- severity: enum
+- source_type: enum
+- location: string
+- category: enum
+- payload: string
+- snippet: string
+- element: optional string
+- attribute: optional string
+- dom_path: optional string
+- hidden_reason: optional string
+- matched_rules: list of MatchedRule
+- reason: string
+- impact: string
+- remediation: list of string
+- score_contribution: integer
+- confidence: LOW | MEDIUM | HIGH
+
+6.3 Rule Model
+
+DetectionRule:
+- id: string
+- category: enum
+- name: string
+- pattern: string
+- pattern_type: PHRASE | REGEX
+- weight: integer
+- explanation: string
+- impact: string
+- recommendation_ids: list of string
+- enabled: boolean
+
+6.4 Optional Database Tables
+
+scans:
+- id
+- scan_type
+- target
+- scanned_at
+- duration_ms
+- risk_score
+- severity
+- finding_count
+- scanner_version
+- created_at
+
+findings:
+- id
+- scan_id
+- title
+- severity
+- source_type
+- category
+- payload
+- snippet
+- metadata_json
+- score_contribution
+
+reports:
+- id
+- scan_id
+- format
+- created_at
+- storage_reference
+
+
+7. DETAILED FUNCTIONAL REQUIREMENTS
+
+7.1 Input Validation
+
+SRS-FR-001: The system shall reject an empty URL.
+
+SRS-FR-002: The system shall reject non-HTTP and non-HTTPS URL schemes.
+
+SRS-FR-003: The system shall reject URLs with embedded credentials.
+
+SRS-FR-004: The system shall reject blocked target addresses before retrieval.
+
+SRS-FR-005: The system shall revalidate redirect destinations.
+
+SRS-FR-006: The system shall reject missing, empty, unsupported, or oversized
+HTML uploads.
+
+SRS-FR-007: The system shall not rely only on the client-provided MIME type or
+filename extension.
+
+7.2 Retrieval
+
+SRS-FR-008: The system shall retrieve URL content using bounded timeouts.
+
+SRS-FR-009: The system shall stop reading when the maximum response size is
+exceeded.
+
+SRS-FR-010: The system shall reject unsupported response content types unless
+content inspection confirms acceptable HTML under configured policy.
+
+SRS-FR-011: The system shall record the final validated URL after redirects.
+
+7.3 Parsing and Extraction
+
+SRS-FR-012: The system shall parse malformed but recoverable HTML without
+executing it.
+
+SRS-FR-013: The system shall extract all required source types listed in
+Section 4.4.
+
+SRS-FR-014: The system shall detect hidden state inherited from supported
+ancestor properties.
+
+SRS-FR-015: The system shall preserve original evidence separately from
+normalized matching text.
+
+SRS-FR-016: The system shall truncate evidence to a configured display length
+while retaining enough context to explain the match.
+
+7.4 Detection
+
+SRS-FR-017: The system shall evaluate every extracted source against all
+enabled rules applicable to that source.
+
+SRS-FR-018: The system shall support phrase and regular-expression rules.
+
+SRS-FR-019: The system shall use case-insensitive normalized matching.
+
+SRS-FR-020: The system shall return matched rule IDs for every finding.
+
+SRS-FR-021: The system shall deduplicate equivalent findings.
+
+SRS-FR-022: The system shall not interpret or execute detected instructions.
+
+7.5 Scoring
+
+SRS-FR-023: The system shall compute a score for each finding.
+
+SRS-FR-024: The system shall compute and cap the overall score from 0 to 100.
+
+SRS-FR-025: The system shall map score boundaries exactly as documented.
+
+SRS-FR-026: The system shall return an explainable score breakdown.
+
+7.6 Results and Reports
+
+SRS-FR-027: The frontend shall display overall score, severity, and finding
+count.
+
+SRS-FR-028: The frontend shall display each required finding field.
+
+SRS-FR-029: The frontend shall render evidence using text-safe components.
+
+SRS-FR-030: The frontend shall display methodology and limitations.
+
+SRS-FR-031: The backend shall generate a self-contained escaped HTML report.
+
+SRS-FR-032: The report shall reproduce the scan score and finding data without
+changing them.
+
+
+8. SECURITY REQUIREMENTS
+
+SRS-SEC-001: All retrieved and uploaded content shall be treated as untrusted.
+
+SRS-SEC-002: Static scans shall never execute JavaScript, plugins, macros, or
+active page content.
+
+SRS-SEC-003: The URL fetcher shall implement the SSRF controls in Section 4.3.
+
+SRS-SEC-004: The system shall validate the actual destination for every
+redirect and connection.
+
+SRS-SEC-005: Evidence and target values shall be escaped in the frontend and
+reports.
+
+SRS-SEC-006: The production frontend shall use a restrictive Content Security
+Policy.
+
+SRS-SEC-007: The API shall configure CORS using an explicit origin allowlist.
+
+SRS-SEC-008: The API shall apply request body and upload size limits.
+
+SRS-SEC-009: Public deployments shall apply rate limiting.
+
+SRS-SEC-010: Production errors shall not expose stack traces, filesystem paths,
+environment variables, or dependency secrets.
+
+SRS-SEC-011: Logs shall not include complete uploaded HTML, fetched HTML,
+authorization data, cookies, or report evidence by default.
+
+SRS-SEC-012: Report filenames and Content-Disposition values shall be
+sanitized.
+
+SRS-SEC-013: Report generation shall not resolve untrusted local paths or
+remote URLs.
+
+SRS-SEC-014: Demo scan endpoints shall select files from a fixed allowlist and
+shall not accept arbitrary path input.
+
+SRS-SEC-015: Dependencies shall be pinned and scanned for known
+vulnerabilities as part of CI.
+
+SRS-SEC-016: If authentication is added, passwords shall use a modern password
+hash and sessions or tokens shall be protected according to current framework
+guidance.
+
+
+9. PRIVACY REQUIREMENTS
+
+SRS-PRV-001: Raw HTML shall be held only for the duration required to complete
+the scan unless retention is explicitly configured.
+
+SRS-PRV-002: Raw uploaded files shall not be persisted by default.
+
+SRS-PRV-003: The product shall disclose whether scan metadata is retained.
+
+SRS-PRV-004: The system shall provide a deletion mechanism before persistent
+multi-user history is released.
+
+SRS-PRV-005: Analytics, if used, shall not capture payload evidence or full
+target URLs containing query secrets.
+
+
+10. PERFORMANCE AND CAPACITY REQUIREMENTS
+
+SRS-PERF-001: The default maximum uploaded HTML size should be 2 MB and shall
+be configurable.
+
+SRS-PERF-002: The default maximum fetched response size should be 5 MB and
+shall be configurable.
+
+SRS-PERF-003: The default URL total timeout should be 10 seconds and shall be
+configurable.
+
+SRS-PERF-004: The default redirect limit should be 3 and shall be configurable.
+
+SRS-PERF-005: A 2 MB uploaded file should complete analysis within 2 seconds on
+the documented development reference environment.
+
+SRS-PERF-006: Parsing and detection shall use bounded source and snippet
+lengths.
+
+SRS-PERF-007: Public deployment shall use concurrency limits to prevent
+resource exhaustion.
+
+
+11. RELIABILITY AND ERROR HANDLING
+
+SRS-REL-001: Every API error shall follow the error schema in Section 5.9.
+
+SRS-REL-002: Each request shall have a request ID suitable for log
+correlation.
+
+SRS-REL-003: A parsing error shall return a controlled response and shall not
+crash the service.
+
+SRS-REL-004: Retrieval errors shall distinguish invalid input, blocked target,
+timeout, oversized response, unsupported content, and upstream failure.
+
+SRS-REL-005: The service shall remain available after a failed scan.
+
+SRS-REL-006: Database failure shall not expose stored data or credentials in
+the response.
+
+
+12. ACCESSIBILITY AND USABILITY
+
+SRS-UX-001: All form inputs shall have persistent labels.
+
+SRS-UX-002: All interactive controls shall be usable by keyboard.
+
+SRS-UX-003: Focus shall move to the result heading or error summary after a
+scan response.
+
+SRS-UX-004: Severity shall include text and shall not rely on color alone.
+
+SRS-UX-005: Loading and error states shall be announced through appropriate
+ARIA live regions.
+
+SRS-UX-006: Evidence blocks shall support wrapping and horizontal scrolling
+without breaking page layout.
+
+SRS-UX-007: The core workflow shall support viewport widths from 320 pixels
+upward.
+
+
+13. OBSERVABILITY REQUIREMENTS
+
+SRS-OBS-001: The backend shall log request ID, endpoint, status, duration, scan
+type, response size category, finding count, and severity.
+
+SRS-OBS-002: Logs shall exclude raw page content by default.
+
+SRS-OBS-003: Production deployments should expose aggregate metrics for scan
+count, error count, latency, blocked targets, and severity distribution.
+
+SRS-OBS-004: Health endpoints shall not expose secrets or detailed internal
+configuration.
+
+
+14. CONFIGURATION REQUIREMENTS
+
+The following values shall be environment-configurable:
+
+- Application environment.
+- API host and port.
+- Allowed frontend origins.
+- Maximum upload size.
+- Maximum fetched response size.
+- URL timeouts.
+- Redirect limit.
+- Allowed destination ports.
+- Rate limits.
+- Database URL.
+- Scan retention setting.
+- Report output setting.
+- Detection rule file.
+- Risk weight configuration.
+- Logging level.
+
+Secrets shall be loaded from environment variables or an approved secret
+manager and shall not be committed to source control.
+
+
+15. PROPOSED PROJECT STRUCTURE
+
+prompt-injection-scanner/
+|
++-- backend/
+|   +-- app/
+|   |   +-- main.py
+|   |   +-- api/
+|   |   |   +-- scans.py
+|   |   |   +-- demos.py
+|   |   |   +-- reports.py
+|   |   +-- core/
+|   |   |   +-- config.py
+|   |   |   +-- errors.py
+|   |   |   +-- security.py
+|   |   +-- models/
+|   |   |   +-- scan.py
+|   |   |   +-- finding.py
+|   |   +-- services/
+|   |   |   +-- url_fetcher.py
+|   |   |   +-- extractor.py
+|   |   |   +-- detector.py
+|   |   |   +-- risk_engine.py
+|   |   |   +-- recommendations.py
+|   |   |   +-- report_generator.py
+|   |   +-- rules/
+|   |   |   +-- prompt_injection_rules.json
+|   |   +-- templates/
+|   |   |   +-- report.html
+|   |   +-- demo_pages/
+|   |       +-- clean.html
+|   |       +-- comment_injection.html
+|   |       +-- hidden_css_injection.html
+|   |       +-- alt_text_injection.html
+|   |       +-- metadata_injection.html
+|   |       +-- aria_injection.html
+|   +-- tests/
+|   |   +-- unit/
+|   |   +-- integration/
+|   |   +-- security/
+|   +-- requirements.txt
+|
++-- frontend/
+|   +-- src/
+|   |   +-- components/
+|   |   +-- pages/
+|   |   +-- services/
+|   |   +-- types/
+|   |   +-- App.jsx
+|   +-- tests/
+|   +-- package.json
+|
++-- docs/
++-- README.md
++-- prd.txt
++-- srs.txt
+
+
+16. TEST REQUIREMENTS
+
+16.1 Unit Tests
+
+- Text normalization.
+- Every extraction source type.
+- Hidden ancestor handling.
+- Every detection category.
+- Case and whitespace variations.
+- Finding deduplication.
+- Score calculations.
+- Severity boundaries at 0, 20, 21, 50, 51, 80, 81, and 100.
+- Evidence truncation.
+- Recommendation mapping.
+- Report escaping.
+
+16.2 Integration Tests
+
+- Upload clean HTML.
+- Upload each vulnerable demo.
+- Scan a controlled public test server.
+- Redirect to an allowed public target.
+- Invalid HTML handling.
+- Oversized upload and response handling.
+- Unsupported content type handling.
+- Complete report generation.
+
+16.3 Security Tests
+
+- Block localhost and 127.0.0.0/8.
+- Block IPv6 loopback.
+- Block RFC1918 private ranges.
+- Block link-local ranges.
+- Block cloud metadata addresses.
+- Block mixed or encoded IP representations.
+- Block redirect from public host to private IP.
+- Test DNS rebinding defense.
+- Reject URL credentials.
+- Reject non-HTTP schemes.
+- Confirm uploaded script is not executed.
+- Confirm evidence cannot cause stored or reflected XSS.
+- Confirm reports escape HTML and script payloads.
+- Confirm demo IDs cannot traverse directories.
+- Confirm logs omit raw evidence and secrets.
+
+16.4 Frontend Tests
+
+- URL and file form validation.
+- Loading and disabled-submit behavior.
+- API error display.
+- No-findings state.
+- Finding card rendering.
+- Severity text and color.
+- Filtering.
+- Escaped evidence display.
+- Keyboard navigation.
+- Responsive layout.
+
+16.5 Test Data
+
+Test fixtures shall include:
+
+- Clean business webpage.
+- Security article containing suspicious phrases visibly and legitimately.
+- HTML comments with instruction override.
+- Hidden CSS with data exfiltration.
+- Alt, ARIA, metadata, title, and data attribute payloads.
+- Multiple duplicate payloads.
+- Mixed-case and irregular whitespace payloads.
+- Zero-width character variants.
+- Very large text nodes.
+- Malformed HTML.
+- HTML containing script-based DOM injection to verify documented static-scan
+  limitations.
+
+
+17. TRACEABILITY MATRIX
+
+Product Requirement -> Software Requirement
+
+PR-FR-001 to PR-FR-005 -> SRS-FR-001 to SRS-FR-011
+PR-FR-006 to PR-FR-014 -> SRS-FR-012 to SRS-FR-016
+PR-FR-015 to PR-FR-019 -> SRS-FR-017 to SRS-FR-022
+PR-FR-020 to PR-FR-025 -> SRS-FR-023 to SRS-FR-030
+PR-FR-026 to PR-FR-028 -> Section 4.10
+PR-FR-029 to PR-FR-032 -> Sections 5.5, 5.6, and SRS-SEC-014
+PR-FR-033 to PR-FR-036 -> SRS-FR-031, SRS-FR-032, and Section 4.11
+PR-FR-037 to PR-FR-039 -> Sections 4.12 and 6.4
+PR Security Criteria -> Section 8
+PR Privacy Criteria -> Section 9
+PR Performance Criteria -> Section 10
+
+
+18. DEPLOYMENT REQUIREMENTS
+
+SRS-DEP-001: Production traffic shall use HTTPS.
+
+SRS-DEP-002: Debug mode shall be disabled in production.
+
+SRS-DEP-003: Frontend and backend origins shall be explicitly configured.
+
+SRS-DEP-004: The backend shall run with a non-administrative operating-system
+identity.
+
+SRS-DEP-005: Containers, if used, shall use a minimal maintained base image.
+
+SRS-DEP-006: CI shall run backend tests, frontend tests, linting, and dependency
+security checks.
+
+SRS-DEP-007: Production configuration shall define resource, request, and
+concurrency limits.
+
+SRS-DEP-008: Database backups and retention shall be configured before hosted
+history is enabled.
+
+
+19. LIMITATIONS
+
+- Rule-based detection cannot understand every paraphrase or language.
+- Static scanning cannot see JavaScript-generated DOM content.
+- Inline CSS checks do not represent full browser computed style.
+- External stylesheets are not evaluated in the MVP.
+- A suspicious phrase may be benign documentation or quoted content.
+- A low score does not guarantee safety.
+- The scanner estimates content risk; it does not prove whether a particular
+  model would obey the detected instruction.
+
+
+20. FUTURE TECHNICAL EXTENSIONS
+
+- Sandboxed Playwright rendered scan mode.
+- External CSS and computed-style inspection.
+- Multilingual rule packs.
+- Obfuscation and encoding detection.
+- Secondary ML or LLM classifier with strict data controls.
+- User feedback for false-positive tuning.
+- Domain crawl mode with explicit authorization and limits.
+- Browser extension.
+- GitHub Actions and repository HTML scanning.
+- AI-agent tool permission and action-risk module.
+- STIX, SARIF, CSV, and additional report exports.
+
+
+21. DEFINITION OF DONE FOR MVP
+
+The MVP is complete when:
+
+- URL and HTML file scans work through the web interface.
+- Required source locations are extracted.
+- Required detection categories are implemented.
+- Scores and severities are deterministic and tested.
+- Results include evidence, explanation, impact, and remediation.
+- All six demo pages are available and produce expected findings.
+- HTML report export works and safely escapes content.
+- SSRF, upload, output-encoding, and size-limit controls are implemented and
+  tested.
+- Backend and frontend automated tests pass.
+- README documents installation, operation, methodology, security model, and
+  limitations.
+- No known Critical or High severity issue remains in the scanner itself.

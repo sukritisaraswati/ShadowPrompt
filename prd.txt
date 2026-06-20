@@ -1,0 +1,616 @@
+PRODUCT REQUIREMENTS DOCUMENT (PRD)
+
+Product Name: Prompt Injection Attack Simulator & Webpage Scanner
+Document Version: 1.0
+Document Date: June 14, 2026
+Document Status: Initial Implementation Baseline
+Product Type: Defensive AI Security Web Application
+
+
+1. DOCUMENT PURPOSE
+
+This Product Requirements Document defines the product vision, target users,
+scope, user journeys, features, priorities, acceptance criteria, risks, and
+success measures for the Prompt Injection Attack Simulator & Webpage Scanner.
+
+The product is an educational and defensive security tool. It scans webpage
+HTML for natural-language instructions that may attempt to manipulate an AI
+browser agent, LLM summarizer, or another AI-enabled application. It does not
+execute payloads, exploit websites, steal information, bypass security
+controls, or perform actions requested by detected content.
+
+
+2. PRODUCT SUMMARY
+
+AI applications increasingly retrieve and process untrusted webpage content.
+Attackers may place instructions in HTML comments, metadata, image alt text,
+ARIA labels, hidden elements, or visible page text. A human visitor may not
+notice these instructions, but an AI system may interpret them as commands.
+
+The product accepts a webpage URL or an uploaded HTML file, extracts relevant
+visible and hidden content, detects suspicious instruction patterns, assigns a
+risk score, presents evidence, explains potential impact, recommends
+mitigations, and exports a defensive security report.
+
+
+3. PROBLEM STATEMENT
+
+Traditional webpage security tools primarily identify executable or
+browser-focused threats such as cross-site scripting. They do not necessarily
+identify malicious natural-language instructions designed to influence an AI
+model.
+
+Developers and security testers need a simple way to:
+
+- Discover prompt-like instructions embedded in webpages.
+- Understand where suspicious instructions are located.
+- Estimate the risk they pose to an AI-enabled application.
+- Demonstrate indirect prompt injection safely.
+- Obtain actionable mitigation guidance.
+- Produce evidence suitable for learning, testing, and reporting.
+
+
+4. PRODUCT VISION
+
+Provide an accessible, transparent, and safe scanner that helps users identify
+indirect prompt-injection risks before untrusted webpage content is passed to
+an AI model or agent.
+
+
+5. PRODUCT GOALS
+
+G-01: Scan a URL or uploaded HTML file without executing the page content.
+
+G-02: Detect suspicious instructions in visible and non-visible HTML sources.
+
+G-03: Clearly identify the location and evidence for each finding.
+
+G-04: Produce an explainable 0 to 100 risk score and severity rating.
+
+G-05: Provide practical remediation guidance for developers and security
+teams.
+
+G-06: Include a safe demo lab that illustrates common injection locations.
+
+G-07: Generate a professional report that can be saved or shared.
+
+G-08: Prevent the scanner itself from being abused to access internal services,
+execute uploaded content, or follow detected instructions.
+
+
+6. NON-GOALS
+
+NG-01: Exploiting, modifying, or attacking external websites.
+
+NG-02: Executing JavaScript, prompt payloads, or actions found in webpage
+content during the MVP.
+
+NG-03: Automatically sending detected content to a third-party LLM.
+
+NG-04: Guaranteeing that every prompt injection will be detected.
+
+NG-05: Replacing a complete web application security scanner.
+
+NG-06: Detecting malware, XSS, SQL injection, CSRF, or network
+vulnerabilities, except where such content overlaps with prompt-injection
+analysis.
+
+NG-07: Crawling an entire domain in the MVP.
+
+NG-08: Bypassing authentication, CAPTCHAs, robots controls, or access
+restrictions.
+
+
+7. TARGET USERS
+
+7.1 Cybersecurity Students
+
+Need a controlled environment to learn the difference between traditional web
+attacks and prompt injection.
+
+7.2 VAPT Interns and Security Testers
+
+Need evidence, severity, and remediation information that can be included in a
+security assessment.
+
+7.3 AI Security Researchers
+
+Need a repeatable way to test common indirect prompt-injection locations and
+compare scanner behavior.
+
+7.4 AI Application Developers
+
+Need to check webpage content before it is provided to an LLM, summarizer, or
+tool-enabled agent.
+
+7.5 Security Teams
+
+Need a basic triage tool for identifying potentially unsafe instructions in
+web content used by internal AI systems.
+
+
+8. USER PERSONAS
+
+Persona A: Security Student
+- Experience: Beginner to intermediate.
+- Goal: Understand where indirect prompt injections can be hidden.
+- Need: Clear explanations, demo pages, and readable findings.
+
+Persona B: AI Application Developer
+- Experience: Intermediate to advanced.
+- Goal: Validate webpage sanitization and content-ingestion controls.
+- Need: Detailed locations, snippets, machine-readable results, and mitigation
+  guidance.
+
+Persona C: Security Analyst
+- Experience: Intermediate to advanced.
+- Goal: Assess and report prompt-injection exposure.
+- Need: Consistent scoring, evidence, exportable reports, and scan history.
+
+
+9. ASSUMPTIONS
+
+A-01: The MVP analyzes static HTML returned by the server or uploaded by the
+user.
+
+A-02: JavaScript-generated DOM content is outside MVP scope.
+
+A-03: Detection is initially rule-based and explainable.
+
+A-04: The scanner may produce false positives because legitimate text can
+contain security-related phrases.
+
+A-05: Users are authorized to scan the URLs and files they submit.
+
+A-06: The product will be used for education and defensive testing.
+
+
+10. PRODUCT SCOPE
+
+10.1 MVP Scope
+
+- URL input and static HTML retrieval.
+- Local HTML file upload.
+- HTML parsing without script execution.
+- Extraction from HTML comments.
+- Extraction from meta tag content.
+- Extraction from image alt attributes.
+- Extraction from ARIA labels.
+- Extraction from title and relevant data attributes.
+- Basic inline CSS-hidden content detection.
+- Visible text inspection.
+- Rule-based suspicious instruction detection.
+- Explainable risk score and severity.
+- Results page with evidence and recommendations.
+- Safe demo pages.
+- HTML report generation.
+- Core URL and upload security controls.
+
+10.2 Post-MVP Scope
+
+- SQLite or PostgreSQL scan history.
+- PDF report export.
+- Authentication and user workspaces.
+- Rendered-page scanning with a sandboxed browser.
+- External stylesheet analysis.
+- Domain crawling with explicit limits.
+- AI-assisted classification as a secondary signal.
+- Browser extension.
+- CI/CD and GitHub Actions integration.
+- API keys and third-party integrations.
+- Scan comparison and trend reporting.
+
+
+11. CORE USER STORIES
+
+US-01: As a user, I want to submit a webpage URL so that I can check its HTML
+for hidden prompt-injection instructions.
+
+US-02: As a user, I want to upload an HTML file so that I can scan local test
+content without publishing it.
+
+US-03: As a user, I want to see a risk score and severity so that I can quickly
+understand the overall result.
+
+US-04: As a user, I want to see the exact suspicious text and its HTML location
+so that I can validate the finding.
+
+US-05: As a developer, I want each finding to explain why it is suspicious so
+that I can distinguish a real issue from a false positive.
+
+US-06: As a developer, I want remediation guidance so that I can reduce risk in
+my AI content-processing pipeline.
+
+US-07: As a student, I want demo pages with known payloads so that I can learn
+how different hiding techniques work.
+
+US-08: As an analyst, I want an exportable report so that I can document scan
+results.
+
+US-09: As a user, I want clear error messages when a URL or file cannot be
+scanned so that I can correct the input.
+
+US-10: As a security-conscious operator, I want internal network addresses and
+unsafe protocols blocked so that the URL scanner cannot be used for SSRF.
+
+
+12. USER EXPERIENCE AND NAVIGATION
+
+12.1 Primary Navigation
+
+- Dashboard
+- Scanner
+- Demo Lab
+- Scan History, when persistence is enabled
+- About / Methodology
+
+12.2 Primary Scan Journey
+
+1. User opens the Scanner page.
+2. User selects URL Scan or HTML File Scan.
+3. User enters a URL or chooses an HTML file.
+4. Client validates required fields and basic input format.
+5. User starts the scan.
+6. Interface displays progress and prevents duplicate submission.
+7. Backend validates, retrieves or reads, parses, and analyzes the HTML.
+8. User is taken to the Results page.
+9. User reviews score, findings, evidence, and recommendations.
+10. User exports an HTML report if needed.
+
+12.3 Empty and Error States
+
+- Empty input: Explain what input is required.
+- Invalid URL: Request an absolute HTTP or HTTPS URL.
+- Blocked URL: Explain that private, loopback, link-local, and unsafe targets
+  are not allowed.
+- Unsupported file: Accept only configured HTML file types.
+- Oversized file or response: Explain the applicable size limit.
+- Retrieval timeout: Explain that the target did not respond in time.
+- No findings: State that no configured suspicious patterns were detected and
+  that this does not guarantee the page is safe.
+- Internal error: Return a generic user message and log technical details
+  without exposing secrets.
+
+
+13. FUNCTIONAL PRODUCT REQUIREMENTS
+
+13.1 Scanner Input
+
+PR-FR-001: The product shall provide separate URL and file scan input modes.
+
+PR-FR-002: URL input shall accept absolute HTTP and HTTPS URLs only.
+
+PR-FR-003: File input shall accept .html and .htm files up to the configured
+size limit.
+
+PR-FR-004: The UI shall show input validation messages before submission where
+possible.
+
+PR-FR-005: The UI shall show a loading state while a scan is running.
+
+13.2 Content Extraction
+
+PR-FR-006: The scanner shall extract HTML comment text.
+
+PR-FR-007: The scanner shall extract relevant meta content values.
+
+PR-FR-008: The scanner shall extract image alt text.
+
+PR-FR-009: The scanner shall extract aria-label and relevant ARIA text.
+
+PR-FR-010: The scanner shall extract title attribute values.
+
+PR-FR-011: The scanner shall inspect configured data-* attributes.
+
+PR-FR-012: The scanner shall identify basic hidden elements through the hidden
+attribute and inline CSS properties.
+
+PR-FR-013: The scanner shall inspect visible text separately from hidden text.
+
+PR-FR-014: The scanner shall avoid treating the same DOM text as separate
+visible and hidden evidence when it represents the same source.
+
+13.3 Detection
+
+PR-FR-015: The scanner shall detect configured phrases across these categories:
+instruction override, data exfiltration, unauthorized action, role
+manipulation, and stealth instructions.
+
+PR-FR-016: Detection shall be case-insensitive.
+
+PR-FR-017: Detection shall tolerate normalized whitespace and common
+punctuation between words.
+
+PR-FR-018: Each finding shall include all matched detection categories and
+rules.
+
+PR-FR-019: The product shall label rule-based results as potential risks rather
+than verified exploitation.
+
+13.4 Risk and Findings
+
+PR-FR-020: Every scan shall return a score from 0 to 100.
+
+PR-FR-021: Every scan shall map the score to Low, Medium, High, or Critical.
+
+PR-FR-022: Every finding shall include an identifier, title, severity,
+location, payload, safe HTML snippet, reason, impact, recommendation, matched
+rule, and score contribution.
+
+PR-FR-023: Duplicate findings from the same source and payload shall be
+deduplicated.
+
+PR-FR-024: The Results page shall group or filter findings by severity,
+location, or category.
+
+PR-FR-025: The product shall display the factors that contributed to the score.
+
+13.5 Mitigations
+
+PR-FR-026: The product shall provide general mitigations for all scans.
+
+PR-FR-027: The product shall provide location-specific and category-specific
+recommendations for each finding.
+
+PR-FR-028: Recommendations shall include separation of trusted instructions
+from untrusted content, content sanitization, least privilege, action
+confirmation, and audit logging where relevant.
+
+13.6 Demo Lab
+
+PR-FR-029: The product shall include a clean demo page.
+
+PR-FR-030: The product shall include separate demos for HTML comment, hidden
+CSS, image alt text, metadata, and ARIA-label injections.
+
+PR-FR-031: Each demo shall explain the technique and expected result.
+
+PR-FR-032: Demo payloads shall remain harmless and use fictional data.
+
+13.7 Reports
+
+PR-FR-033: The product shall generate an HTML report from a completed scan.
+
+PR-FR-034: Reports shall contain an executive summary, target, scan timestamp,
+risk score, severity summary, findings, evidence, recommendations,
+methodology, limitations, and disclaimer.
+
+PR-FR-035: Dynamic values in a report shall be safely escaped.
+
+PR-FR-036: PDF export may be delivered after the HTML report and shall preserve
+the same required report sections.
+
+13.8 History
+
+PR-FR-037: When scan history is enabled, the dashboard shall show total scans,
+high-risk scans, critical scans, and recent scans.
+
+PR-FR-038: Stored scans shall be retrievable by a unique scan identifier.
+
+PR-FR-039: Raw uploaded HTML shall not be stored by default.
+
+
+14. RISK SCORING PRODUCT RULES
+
+The scoring system must be deterministic, explainable, configurable, and
+capped at 100. Suggested baseline weights are:
+
+- Suspicious phrase in visible content: 10
+- Suspicious phrase in HTML comment: 20
+- Suspicious phrase in meta tag: 20
+- Suspicious phrase in image alt text: 20
+- Suspicious phrase in ARIA label: 20
+- Suspicious phrase in hidden content: 25
+- Strong instruction override phrase: 30
+- Strong data exfiltration phrase: 40
+- Sensitive or unauthorized action request: 25
+- Each additional unique suspicious source after the first: 10
+
+Severity mapping:
+
+- 0 to 20: Low
+- 21 to 50: Medium
+- 51 to 80: High
+- 81 to 100: Critical
+
+The implementation shall avoid unintentionally adding the same rule weight
+multiple times for repeated words within one source. The Results page shall
+show that the score is a triage aid and not proof that an AI system was
+successfully compromised.
+
+
+15. ACCEPTANCE CRITERIA
+
+AC-01: A valid uploaded clean HTML page completes successfully and produces no
+suspicious findings under the configured rules.
+
+AC-02: An HTML comment containing "ignore previous instructions" creates a
+finding located at HTML Comment and contributes the configured override and
+location weights.
+
+AC-03: A display:none element containing an exfiltration request creates a
+Hidden CSS Text finding.
+
+AC-04: Suspicious text in an image alt attribute is reported as Image Alt Text.
+
+AC-05: Suspicious text in a meta content attribute is reported as Meta Tag.
+
+AC-06: Suspicious text in an aria-label is reported as ARIA Label.
+
+AC-07: The final score never exceeds 100 or falls below 0.
+
+AC-08: The severity shown in the UI matches the documented score boundaries.
+
+AC-09: Every finding contains evidence, explanation, impact, and remediation.
+
+AC-10: Evidence containing HTML is displayed as text and never executed in the
+browser.
+
+AC-11: URL requests to localhost, private networks, link-local addresses, and
+cloud metadata targets are rejected.
+
+AC-12: Redirects are revalidated before being followed.
+
+AC-13: Files and URL responses exceeding configured limits are rejected.
+
+AC-14: A completed result can be exported as a readable HTML report.
+
+AC-15: Every demo page produces its documented expected category and location.
+
+AC-16: The UI is usable at common mobile and desktop viewport sizes.
+
+AC-17: A no-findings result includes a limitation statement rather than
+claiming the page is fully safe.
+
+
+16. NON-FUNCTIONAL PRODUCT REQUIREMENTS
+
+16.1 Performance
+
+- Typical uploaded HTML files up to 2 MB should be analyzed within 2 seconds
+  on the target local development environment.
+- Typical URL scans should complete within 10 seconds, excluding targets that
+  hit configured timeout limits.
+- The UI should provide immediate submission feedback within 200 milliseconds.
+
+16.2 Security
+
+- URL fetching must include SSRF defenses.
+- Uploaded content must not be executed.
+- Evidence must be escaped before display.
+- Sensitive request and response bodies must not be written to normal logs.
+- Server errors must not expose stack traces in production responses.
+- Report generation must not load untrusted remote resources.
+- CORS must be limited to configured frontend origins.
+
+16.3 Privacy
+
+- Raw page HTML and uploaded files shall be processed transiently by default.
+- Scan history shall store metadata and findings only unless retention is
+  explicitly enabled.
+- A retention and deletion policy must be documented before production use.
+
+16.4 Accessibility
+
+- Core workflows shall be keyboard accessible.
+- Form controls shall have labels.
+- Severity shall not be communicated by color alone.
+- Error and progress messages shall be available to assistive technology.
+
+16.5 Reliability
+
+- A failure while retrieving or parsing one scan shall not stop the API.
+- All errors shall use a consistent response format.
+- Detection and scoring shall be covered by automated tests.
+
+16.6 Maintainability
+
+- Extraction, detection, scoring, reporting, and URL retrieval shall remain
+  separate modules.
+- Rules and weights shall be configurable without changing UI code.
+- Public API contracts shall be documented.
+
+
+17. SUCCESS METRICS
+
+SM-01: 100 percent of provided demo payloads are detected in the correct
+location.
+
+SM-02: 100 percent of score boundary tests map to the expected severity.
+
+SM-03: Zero execution of uploaded or retrieved scripts during static scans.
+
+SM-04: Zero successful requests to test loopback, private, link-local, or cloud
+metadata addresses.
+
+SM-05: At least 90 percent of usability test participants can complete a URL or
+file scan without assistance.
+
+SM-06: At least 90 percent of users in testing can identify why the highest
+severity finding was flagged.
+
+SM-07: All generated reports contain the required report sections.
+
+
+18. PRODUCT RISKS AND MITIGATIONS
+
+Risk: False positives caused by legitimate security documentation.
+Mitigation: Show evidence and matched rules, separate visible from hidden
+content, and allow findings to be reviewed rather than declaring compromise.
+
+Risk: False negatives caused by paraphrased, obfuscated, or multilingual text.
+Mitigation: Document limitations, expand rules over time, normalize text, and
+optionally add an AI classifier as a secondary signal.
+
+Risk: SSRF through URL scanning.
+Mitigation: Restrict schemes, resolve and validate all IP addresses, block
+non-public ranges, revalidate redirects, limit ports, and apply time and size
+limits.
+
+Risk: Stored XSS through evidence display or report generation.
+Mitigation: Treat all page content as untrusted, escape it, and apply a strict
+Content Security Policy.
+
+Risk: Large or malformed HTML causing resource exhaustion.
+Mitigation: Enforce upload and response limits, parsing timeouts where
+possible, concurrency limits, and request rate limits.
+
+Risk: Users assume Low means safe.
+Mitigation: Clearly state that the scanner detects configured patterns and does
+not prove absence of prompt injection.
+
+Risk: JavaScript-generated payloads are missed.
+Mitigation: Label MVP scans as static HTML analysis and add sandboxed rendered
+scanning as a future mode.
+
+
+19. RELEASE PLAN
+
+Release 1 - Core Engine
+- HTML upload endpoint.
+- Static parser and extractors.
+- Pattern detection.
+- Risk scoring.
+- Automated unit tests.
+
+Release 2 - Web MVP
+- URL scanner with SSRF controls.
+- React scanner and results pages.
+- Finding evidence and recommendations.
+- Demo pages.
+- HTML report export.
+
+Release 3 - Product Completion
+- Dashboard and scan history.
+- PDF export.
+- Filters and improved visualizations.
+- Deployment configuration and production hardening.
+
+Release 4 - Advanced Analysis
+- Sandboxed rendered-page scanning.
+- AI-assisted classification.
+- CI/CD, browser extension, and integration features.
+
+
+20. OPEN PRODUCT DECISIONS
+
+PD-01: Final maximum upload and URL response size for hosted deployment.
+
+PD-02: Whether anonymous hosted scans will be retained.
+
+PD-03: Whether PDF export belongs in the first public release.
+
+PD-04: Whether a user can customize rule weights.
+
+PD-05: Whether rendered scanning will be offered only to authenticated users.
+
+PD-06: Which database will be used for hosted scan history.
+
+
+21. PRODUCT DISCLAIMER
+
+This product is intended for authorized, educational, and defensive security
+testing. Detection results are heuristic and may include false positives or
+miss obfuscated instructions. A low score does not certify that a page is safe.
+Users are responsible for ensuring that they have permission to scan submitted
+targets.
