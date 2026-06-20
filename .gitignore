@@ -1,6 +1,7 @@
 # Documents & temp files
 *.txt
 *.docx
+!requirements.txt
 
 # Utility scripts (not part of the project)
 generate_blueprint.py
