@@ -40,9 +40,10 @@ app.add_middleware(
 )
 
 # Import and include routers
-from app.routers import scan, health  # noqa: E402
+from app.routers import scan, health, lab  # noqa: E402
 
 app.include_router(scan.router, prefix="/api/v1/scan", tags=["ShadowScan"])
+app.include_router(lab.router, prefix="/api/v1/lab", tags=["ShadowPrompt Lab"])
 app.include_router(health.router, prefix="/api/v1", tags=["Health"])
 
 
