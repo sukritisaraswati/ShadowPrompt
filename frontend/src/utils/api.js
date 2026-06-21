@@ -85,4 +85,112 @@ export async function getHealth() {
   return response.data;
 }
 
+// --- ShadowPrompt Lab API ---
+
+export async function testLLMConnection(baseUrl, model, apiKey) {
+  const response = await api.post('/lab/connect',
+    { base_url: baseUrl, model },
+    { headers: { 'X-LLM-API-Key': apiKey } }
+  );
+  return response.data;
+}
+
+export async function createCampaign(baseUrl, model, selectedLevels, apiKey) {
+  const response = await api.post('/lab/campaigns',
+    { base_url: baseUrl, model, selected_levels: selectedLevels },
+    { headers: { 'X-LLM-API-Key': apiKey }, timeout: 60000 }
+  );
+  return response.data;
+}
+
+export function streamCampaign(campaignId, apiKey, onEvent, onError, onComplete) {
+  // Use fetch + ReadableStream for SSE since EventSource doesn't support custom headers
+  const controller = new AbortController();
+
+  fetch(`/api/v1/lab/campaigns/${campaignId}/stream`, {
+    headers: { 'X-LLM-API-Key': apiKey },
+    signal: controller.signal,
+  })
+    .then(async (response) => {
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ detail: 'Stream failed' }));
+        onError(err.detail || `HTTP ${response.status}`);
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        let eventType = '';
+        let eventData = '';
+
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            eventType = line.slice(7).trim();
+          } else if (line.startsWith('data: ')) {
+            eventData = line.slice(6).trim();
+          } else if (line === '' && eventType && eventData) {
+            try {
+              const data = JSON.parse(eventData);
+              onEvent(eventType, data);
+              if (eventType === 'campaign_complete' || eventType === 'campaign_cancelled' || eventType === 'campaign_error') {
+                onComplete(eventType, data);
+              }
+            } catch (e) {
+              console.error('SSE parse error:', e);
+            }
+            eventType = '';
+            eventData = '';
+          }
+        }
+      }
+
+      // Stream ended
+      if (!controller.signal.aborted) {
+        onComplete('stream_end', {});
+      }
+    })
+    .catch((err) => {
+      if (err.name !== 'AbortError') {
+        onError(err.message || 'Stream connection failed');
+      }
+    });
+
+  // Return cancel function
+  return () => controller.abort();
+}
+
+export async function getCampaign(campaignId) {
+  const response = await api.get(`/lab/campaigns/${campaignId}`);
+  return response.data;
+}
+
+export async function cancelCampaign(campaignId) {
+  const response = await api.post(`/lab/campaigns/${campaignId}/cancel`);
+  return response.data;
+}
+
+export async function listCampaigns(page = 1, perPage = 20, status = null) {
+  const params = { page, per_page: perPage };
+  if (status) params.status = status;
+  const response = await api.get('/lab/campaigns', { params });
+  return response.data;
+}
+
+export async function getPayloads(level = null) {
+  const params = {};
+  if (level) params.level = level;
+  const response = await api.get('/lab/payloads', { params });
+  return response.data;
+}
+
 export default api;
