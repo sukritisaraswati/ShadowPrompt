@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🛡️ ShadowPrompt
+# 🛡️ ShadowPrompt 
 
 ### LLM Security Testing Lab
 
