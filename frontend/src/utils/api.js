@@ -193,4 +193,11 @@ export async function getPayloads(level = null) {
   return response.data;
 }
 
+export async function generateLabReport(campaignId) {
+  const response = await api.get(`/lab/campaigns/${campaignId}/report/pdf`, {
+    responseType: 'blob',
+  });
+  return response.data;
+}
+
 export default api;

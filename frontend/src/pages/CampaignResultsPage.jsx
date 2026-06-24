@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { getCampaign } from '../utils/api'
+import { getCampaign, generateLabReport } from '../utils/api'
 
 const VERDICT_STYLES = {
   PASS: 'bg-severity-clean/15 text-severity-clean',
@@ -49,19 +49,41 @@ export default function CampaignResultsPage() {
     </div>
   )
 
+  const handleExport = async () => {
+    try {
+      const blob = await generateLabReport(id)
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `shadowprompt_lab_report_${id.slice(0, 8)}.pdf`
+      a.click()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      alert('Failed to generate PDF. Make sure WeasyPrint and its dependencies are installed on the backend.')
+    }
+  }
+
   const filteredResults = filter
     ? campaign.test_results.filter(tr => tr.verdict === filter)
     : campaign.test_results
 
   return (
     <div className="animate-fade-in">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold mb-2">
-          📊 <span className="gradient-text">Campaign Results</span>
-        </h1>
-        <p className="text-text-secondary text-sm">
-          {campaign.model_name} • {campaign.status === 'completed' ? 'Completed' : campaign.status}
-        </p>
+      <div className="flex justify-between items-center mb-8">
+        <div className="flex-1"></div>
+        <div className="text-center flex-1">
+          <h1 className="text-3xl font-bold mb-2">
+            📊 <span className="gradient-text">Campaign Results</span>
+          </h1>
+          <p className="text-text-secondary text-sm">
+            {campaign.model_name} • {campaign.status === 'completed' ? 'Completed' : campaign.status}
+          </p>
+        </div>
+        <div className="flex-1 flex justify-end">
+          <button onClick={handleExport} className="btn-secondary text-sm flex items-center gap-2">
+            📄 Export PDF
+          </button>
+        </div>
       </div>
 
       {/* Overall Score */}

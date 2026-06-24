@@ -113,6 +113,7 @@ def get_level_metadata() -> List[Dict]:
             "payload_count": len([p for p in all_payloads if p.level == 3]),
             "difficulty": "Advanced",
             "categories": sorted(set(p.category for p in all_payloads if p.level == 3)),
+        },
         {
             "level": 4,
             "name": "Indirect Injection",

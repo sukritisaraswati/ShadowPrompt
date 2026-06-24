@@ -260,6 +260,58 @@ async def get_campaign(campaign_id: str):
         }
 
 
+from fastapi.responses import HTMLResponse, Response
+from app.reports.generator import generate_campaign_html_report, generate_pdf_from_html
+
+async def _get_campaign_and_results(campaign_id: str):
+    async with async_session() as session:
+        result = await session.execute(select(Campaign).where(Campaign.id == campaign_id))
+        campaign = result.scalar_one_or_none()
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found.")
+            
+        tr_result = await session.execute(
+            select(TestResult)
+            .where(TestResult.campaign_id == campaign_id)
+            .order_by(TestResult.created_at)
+        )
+        test_results = tr_result.scalars().all()
+        return campaign, test_results
+
+
+@router.get("/campaigns/{campaign_id}/report")
+async def generate_campaign_report(campaign_id: str):
+    """Generate an HTML report for a completed lab campaign."""
+    campaign, test_results = await _get_campaign_and_results(campaign_id)
+    html_report = generate_campaign_html_report(campaign, test_results)
+
+    return HTMLResponse(
+        content=html_report,
+        headers={
+            "Content-Disposition": f'attachment; filename="shadowprompt_lab_report_{campaign.id[:8]}.html"',
+        },
+    )
+
+
+@router.get("/campaigns/{campaign_id}/report/pdf")
+async def generate_campaign_pdf_report(campaign_id: str):
+    """Generate a PDF report for a completed lab campaign."""
+    campaign, test_results = await _get_campaign_and_results(campaign_id)
+    html_report = generate_campaign_html_report(campaign, test_results)
+    
+    try:
+        pdf_bytes = generate_pdf_from_html(html_report)
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="shadowprompt_lab_report_{campaign.id[:8]}.pdf"',
+            },
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/campaigns/{campaign_id}/cancel")
 async def cancel_running_campaign(campaign_id: str):
     """Cancel a running campaign."""

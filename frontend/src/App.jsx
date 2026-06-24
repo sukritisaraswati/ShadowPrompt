@@ -15,6 +15,8 @@ import ConnectPage from './pages/ConnectPage'
 import ConfigurePage from './pages/ConfigurePage'
 import RunningPage from './pages/RunningPage'
 import CampaignResultsPage from './pages/CampaignResultsPage'
+import LabHistoryPage from './pages/LabHistoryPage'
+import ComparePage from './pages/ComparePage'
 
 export default function App() {
   return (
@@ -36,6 +38,8 @@ export default function App() {
           <Route path="/lab/configure" element={<ConfigurePage />} />
           <Route path="/lab/running/:id" element={<RunningPage />} />
           <Route path="/lab/results/:id" element={<CampaignResultsPage />} />
+          <Route path="/lab/history" element={<LabHistoryPage />} />
+          <Route path="/lab/compare" element={<ComparePage />} />
 
           {/* About */}
           <Route path="/about" element={<AboutPage />} />

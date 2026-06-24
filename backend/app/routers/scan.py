@@ -308,6 +308,40 @@ async def generate_report(request: ReportRequest, db: AsyncSession = Depends(get
     )
 
 
+from fastapi.responses import Response
+from app.reports.generator import generate_pdf_from_html
+
+@router.post("/reports/pdf")
+async def generate_pdf_report(request: ReportRequest, db: AsyncSession = Depends(get_db)):
+    """Generate a PDF report for a completed scan."""
+    result = await db.execute(
+        select(ScanResult).where(ScanResult.id == request.scan_id)
+    )
+    scan = result.scalar_one_or_none()
+
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    findings_result = await db.execute(
+        select(Finding).where(Finding.scan_id == request.scan_id)
+    )
+    scan.findings = findings_result.scalars().all()
+
+    html_report = generate_html_report(scan)
+    
+    try:
+        pdf_bytes = generate_pdf_from_html(html_report)
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="shadowscan_report_{scan.id[:8]}.pdf"',
+            },
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def _scan_to_response(scan: ScanResult) -> ScanResultResponse:
     """Convert a ScanResult model to an API response."""
     return ScanResultResponse(

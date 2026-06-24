@@ -62,3 +62,48 @@ def generate_html_report(scan: ScanResult) -> str:
     )
 
     return html
+
+
+def generate_campaign_html_report(campaign, test_results: list) -> str:
+    """
+    Generate a self-contained HTML report for a completed Lab Campaign.
+    
+    Args:
+        campaign: The Campaign model instance
+        test_results: List of TestResult dictionary objects
+
+    Returns:
+        Complete HTML string for the report
+    """
+    template = _env.get_template("campaign_report.html")
+
+    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    html = template.render(
+        campaign=campaign,
+        test_results=test_results,
+        generated_at=generated_at,
+        app_name=settings.APP_NAME,
+        app_version=settings.APP_VERSION,
+    )
+
+    return html
+
+
+def generate_pdf_from_html(html_content: str) -> bytes:
+    """
+    Generate a PDF from an HTML string using WeasyPrint.
+    
+    Args:
+        html_content: The HTML string
+        
+    Returns:
+        PDF file content as bytes
+    """
+    try:
+        from weasyprint import HTML
+        pdf_bytes = HTML(string=html_content).write_pdf()
+        return pdf_bytes
+    except ImportError:
+        # Fallback if WeasyPrint is not installed or missing OS dependencies (like GTK3 on Windows)
+        raise RuntimeError("WeasyPrint is not installed or missing system dependencies (GTK3). Cannot generate PDF.")

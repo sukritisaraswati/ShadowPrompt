@@ -9,6 +9,8 @@ const scanItems = [
 const labItems = [
   { to: '/lab/connect', label: 'Connect', icon: '🔌' },
   { to: '/lab/configure', label: 'Configure', icon: '⚙️' },
+  { to: '/lab/history', label: 'History', icon: '📋' },
+  { to: '/lab/compare', label: 'Compare', icon: '⚖️' },
 ]
 
 export default function Navbar() {
