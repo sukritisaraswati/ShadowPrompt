@@ -50,11 +50,21 @@ SECRET_SYSTEM_PROMPT = (
 
 def get_all_payloads() -> List[Payload]:
     """Load and return all payloads from all levels."""
-    from app.lab.payloads.level1_basic import LEVEL1_PAYLOADS
-    from app.lab.payloads.level2_persona import LEVEL2_PAYLOADS
-    from app.lab.payloads.level3_adversarial import LEVEL3_PAYLOADS
+    from app.lab.payloads.level1_basic import LEVEL_1_PAYLOADS
+    from app.lab.payloads.level2_persona import LEVEL_2_PAYLOADS
+    from app.lab.payloads.level3_adversarial import LEVEL_3_PAYLOADS
+    from app.lab.payloads.level4_indirect import LEVEL_4_PAYLOADS
+    from app.lab.payloads.level5_chained import LEVEL_5_PAYLOADS
 
-    return LEVEL1_PAYLOADS + LEVEL2_PAYLOADS + LEVEL3_PAYLOADS
+    # All available payloads
+    ALL_PAYLOADS: List[Payload] = (
+        LEVEL_1_PAYLOADS +
+        LEVEL_2_PAYLOADS +
+        LEVEL_3_PAYLOADS +
+        LEVEL_4_PAYLOADS +
+        LEVEL_5_PAYLOADS
+    )
+    return ALL_PAYLOADS
 
 
 def get_payloads_by_level(level: int) -> List[Payload]:
@@ -103,5 +113,20 @@ def get_level_metadata() -> List[Dict]:
             "payload_count": len([p for p in all_payloads if p.level == 3]),
             "difficulty": "Advanced",
             "categories": sorted(set(p.category for p in all_payloads if p.level == 3)),
+        {
+            "level": 4,
+            "name": "Indirect Injection",
+            "description": "Simulates indirect prompt injection via web browsing, summarization, or RAG contexts where malicious instructions are hidden in data.",
+            "payload_count": len([p for p in all_payloads if p.level == 4]),
+            "difficulty": "Expert",
+            "categories": sorted(set(p.category for p in all_payloads if p.level == 4)),
+        },
+        {
+            "level": 5,
+            "name": "Chained & Multi-Vector",
+            "description": "Combines multiple techniques, obfuscation, and multi-step reasoning to break constraints (payload relay, reflection poisoning).",
+            "payload_count": len([p for p in all_payloads if p.level == 5]),
+            "difficulty": "Master",
+            "categories": sorted(set(p.category for p in all_payloads if p.level == 5)),
         },
     ]
