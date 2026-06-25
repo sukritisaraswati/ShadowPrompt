@@ -35,27 +35,25 @@ Attackers can embed **invisible instructions** in HTML comments, image alt text,
 
 ---
 
-## 🚀 What is ShadowScan?
+## 🚀 What is ShadowPrompt?
 
-ShadowScan is the **first service** in the ShadowPrompt platform — a standalone webpage scanner that answers one critical question:
+ShadowPrompt is a complete LLM security testing platform composed of two main services:
 
-> *"If my AI reads this webpage, could it get manipulated?"*
-
-Paste a URL or upload an HTML file. In seconds, get a detailed analysis of every hidden instruction, scored by severity, with evidence and remediation.
+1. **ShadowScan**: A static webpage scanner that extracts and detects hidden instructions before an AI processes them. Paste a URL or upload an HTML file to get a detailed analysis of every hidden instruction.
+2. **ShadowPrompt Lab**: A dynamic adversarial testing environment that sends up to 85 prompt injection payloads across 5 difficulty levels to target LLMs. Responses are evaluated by a robust 3-layer engine to determine the model's resilience.
 
 ```
 ┌─────────────────────────────────────────────────────┐
 │                                                     │
-│                 URL / HTML File                     │
-│                        │                            │
-│                        ▼                            │
-│   ┌───────────┐   ┌──────────────┐   ┌──────────┐   │
-│   │  EXTRACT  │ → │  DETECT      │ → │  SCORE   │   │
-│   │ 13 sources│   │ 7 categories │   │ 0-100    │   │
-│   └───────────┘   └──────────────┘   └──────────┘   │
-│                        │                            │
-│                        ▼                            │
-│         Findings + Risk Score + HTML Report         │
+│                  SHADOWPROMPT                       │
+│                                                     │
+│   ┌─────────────────┐       ┌─────────────────┐     │
+│   │   ShadowScan    │       │ ShadowPrompt Lab│     │
+│   │ (Static Scanner)│       │ (Dynamic Tests) │     │
+│   └────────┬────────┘       └────────┬────────┘     │
+│            │                         │              │
+│            ▼                         ▼              │
+│     Extract & Detect           Inject & Evaluate    │
 │                                                     │
 └─────────────────────────────────────────────────────┘
 ```
@@ -64,7 +62,17 @@ Paste a URL or upload an HTML file. In seconds, get a detailed analysis of every
 
 ## ✨ Features
 
-### 🔍 Deep HTML Extraction
+### 🔬 ShadowPrompt Lab (Dynamic Testing)
+
+Connect to any OpenAI-compatible LLM endpoint and run adversarial campaigns to test its resilience against Prompt Injection.
+- **5 Levels of Adversarial Payloads**: 85 distinct payloads scaling from basic direct commands (Level 1) to sophisticated chained multi-vector attacks (Level 5).
+- **3-Layer Evaluation Engine**:
+  1. **Keyword Layer**: Fast, deterministic regex matching.
+  2. **Semantic Layer**: Fuzzy logic and heuristic matching for evasive responses.
+  3. **AI Judge Layer**: Uses Claude 3 (Anthropic) as an expert tiebreaker for ambiguous or partial failures.
+- **Reporting & Compare**: Generate offline PDF reports of campaigns, browse test history, and compare up to 3 LLM models side-by-side.
+
+### 🔍 Deep HTML Extraction (ShadowScan)
 
 ShadowScan doesn't just skim — it **dissects**. Content is extracted from 13 distinct HTML source locations:
 
@@ -250,11 +258,12 @@ All endpoints are under `/api/v1`. Full interactive docs available at `http://lo
 | `POST` | `/scan/url` | Scan a URL for prompt injection |
 | `POST` | `/scan/html` | Upload & scan an HTML file |
 | `GET` | `/scan/results/:id` | Get scan results by ID |
-| `GET` | `/scan/results` | List past scans (paginated) |
 | `GET` | `/scan/demo-pages` | List available demo pages |
-| `POST` | `/scan/demo-pages/:id/scan` | Scan a specific demo page |
-| `POST` | `/scan/reports` | Generate HTML report |
-| `GET` | `/health` | Health check |
+| `POST` | `/scan/reports/pdf` | Generate PDF report for scan |
+| `POST` | `/lab/connect` | Test LLM connection |
+| `POST` | `/lab/campaigns` | Start an adversarial campaign |
+| `GET` | `/lab/campaigns/:id/stream` | Stream campaign progress (SSE) |
+| `GET` | `/lab/campaigns/:id/report/pdf` | Generate PDF report for campaign |
 
 ### Example: Scan a URL
 
@@ -279,8 +288,8 @@ ShadowPrompt is being built in 4 releases:
 | Release | Name | Status | What It Adds |
 |:---:|:---|:---:|:---|
 | **1** | ShadowScan MVP | ✅ **Complete** | Webpage scanner, 13 sources, 7 categories, scoring, reports, demos |
-| **2** | Lab Core | 🔲 Planned | LLM connection, attack levels 1–3, evaluation engine |
-| **3** | Full Platform | 🔲 Planned | Levels 4–5, AI evaluator, PDF reports, model comparison |
+| **2** | Lab Core | ✅ **Complete** | LLM connection, attack levels 1–3, evaluation engine |
+| **3** | Full Platform | ✅ **Complete** | Levels 4–5, AI evaluator, PDF reports, model comparison |
 | **4** | Advanced | 🔲 Planned | Ollama support, multilingual, CI/CD plugin, browser extension |
 
 ---
