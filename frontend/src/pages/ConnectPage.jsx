@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { testLLMConnection } from '../utils/api'
 
 const PROVIDER_PRESETS = [
-  { name: 'OpenAI', url: 'https://api.openai.com/v1', defaultModel: 'gpt-4o-mini' },
-  { name: 'Groq', url: 'https://api.groq.com/openai/v1', defaultModel: 'llama-3.1-8b-instant' },
-  { name: 'Together', url: 'https://api.together.xyz/v1', defaultModel: 'meta-llama/Llama-3-8b-chat-hf' },
-  { name: 'Custom', url: '', defaultModel: '' },
+  { name: 'OpenAI', url: 'https://api.openai.com/v1', defaultModel: 'gpt-4o-mini', needsKey: true },
+  { name: 'Groq', url: 'https://api.groq.com/openai/v1', defaultModel: 'llama-3.1-8b-instant', needsKey: true },
+  { name: 'Together', url: 'https://api.together.xyz/v1', defaultModel: 'meta-llama/Llama-3-8b-chat-hf', needsKey: true },
+  { name: 'Ollama', url: 'http://localhost:11434', defaultModel: 'llama3.2', needsKey: false },
+  { name: 'LM Studio', url: 'http://localhost:1234', defaultModel: 'local-model', needsKey: false },
+  { name: 'Custom', url: '', defaultModel: '', needsKey: true },
 ]
 
 export default function ConnectPage() {
@@ -26,8 +28,9 @@ export default function ConnectPage() {
   }
 
   const handleTest = async () => {
-    if (!baseUrl.trim() || !model.trim() || !apiKey.trim()) {
-      setStatus({ type: 'error', message: 'Please fill in all fields.' })
+    const currentPreset = PROVIDER_PRESETS[provider]
+    if (!baseUrl.trim() || !model.trim() || (currentPreset.needsKey && !apiKey.trim())) {
+      setStatus({ type: 'error', message: 'Please fill in all required fields.' })
       return
     }
     setTesting(true)
@@ -70,7 +73,7 @@ export default function ConnectPage() {
       <div className="glass rounded-2xl p-6">
         {/* Provider Presets */}
         <label className="block text-sm font-medium text-text-muted mb-2">Provider</label>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mb-5">
           {PROVIDER_PRESETS.map((p, i) => (
             <button key={p.name} onClick={() => selectProvider(i)}
               className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -106,14 +109,18 @@ export default function ConnectPage() {
         {/* API Key */}
         <label className="block text-sm font-medium text-text-muted mb-1.5">
           API Key
-          <span className="ml-2 text-xs text-accent-cyan font-normal">🔒 Memory-only — never stored</span>
+          {PROVIDER_PRESETS[provider].needsKey
+            ? <span className="ml-2 text-xs text-accent-cyan font-normal">🔒 Memory-only — never stored</span>
+            : <span className="ml-2 text-xs text-severity-clean font-normal">✓ Not required for local models</span>
+          }
         </label>
         <input
           type="password"
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
-          placeholder="sk-..."
-          className="w-full px-4 py-2.5 rounded-lg bg-bg-card border border-border text-text-primary placeholder-text-muted/50 focus:border-accent-purple focus:ring-1 focus:ring-accent-purple/30 outline-none transition-all mb-5 text-sm font-mono"
+          placeholder={PROVIDER_PRESETS[provider].needsKey ? 'sk-...' : '(optional)'}
+          disabled={!PROVIDER_PRESETS[provider].needsKey}
+          className="w-full px-4 py-2.5 rounded-lg bg-bg-card border border-border text-text-primary placeholder-text-muted/50 focus:border-accent-purple focus:ring-1 focus:ring-accent-purple/30 outline-none transition-all mb-5 text-sm font-mono disabled:opacity-50"
         />
 
         {/* Status Message */}
@@ -132,7 +139,7 @@ export default function ConnectPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleTest}
-            disabled={testing || !baseUrl || !model || !apiKey}
+            disabled={testing || !baseUrl || !model || (PROVIDER_PRESETS[provider].needsKey && !apiKey)}
             className="flex-1 px-4 py-2.5 bg-bg-card border border-accent-purple/30 text-accent-purple font-semibold rounded-lg hover:bg-accent-purple/10 transition-all disabled:opacity-40 text-sm"
           >
             {testing ? (
@@ -160,9 +167,9 @@ export default function ConnectPage() {
       <div className="glass rounded-xl p-4 mt-6 border-l-4 border-accent-purple/50">
         <h3 className="font-semibold text-text-primary text-sm mb-1">What happens next?</h3>
         <p className="text-xs text-text-secondary leading-relaxed">
-          After connecting, you'll choose which attack levels to run (1–3). The lab will send
+          After connecting, you'll choose which attack levels to run (1–5, plus optional Level 6 multilingual). The lab will send
           each payload to your model, evaluate its response, and give you a real-time security score.
-          Your API key is used only for the duration of the session.
+          Your API key is used only for the duration of the session and is never stored.
         </p>
       </div>
     </div>

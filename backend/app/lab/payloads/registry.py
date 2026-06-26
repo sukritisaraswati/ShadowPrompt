@@ -55,6 +55,7 @@ def get_all_payloads() -> List[Payload]:
     from app.lab.payloads.level3_adversarial import LEVEL_3_PAYLOADS
     from app.lab.payloads.level4_indirect import LEVEL_4_PAYLOADS
     from app.lab.payloads.level5_chained import LEVEL_5_PAYLOADS
+    from app.lab.payloads.level6_multilingual import LEVEL_6_PAYLOADS
 
     # All available payloads
     ALL_PAYLOADS: List[Payload] = (
@@ -62,7 +63,8 @@ def get_all_payloads() -> List[Payload]:
         LEVEL_2_PAYLOADS +
         LEVEL_3_PAYLOADS +
         LEVEL_4_PAYLOADS +
-        LEVEL_5_PAYLOADS
+        LEVEL_5_PAYLOADS +
+        LEVEL_6_PAYLOADS
     )
     return ALL_PAYLOADS
 
@@ -129,5 +131,13 @@ def get_level_metadata() -> List[Dict]:
             "payload_count": len([p for p in all_payloads if p.level == 5]),
             "difficulty": "Master",
             "categories": sorted(set(p.category for p in all_payloads if p.level == 5)),
+        },
+        {
+            "level": 6,
+            "name": "Multilingual",
+            "description": "Tests LLM resilience to prompt injection in non-English languages (Spanish, French, German, Chinese, Japanese, Arabic).",
+            "payload_count": len([p for p in all_payloads if p.level == 6]),
+            "difficulty": "Expert",
+            "categories": sorted(set(p.category for p in all_payloads if p.level == 6)),
         },
     ]

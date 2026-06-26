@@ -57,13 +57,28 @@ def _normalize_base_url(base_url: str) -> str:
         # Check if it's a known provider that needs /v1
         if "openai.com" in base_url or "groq.com" in base_url or "together.xyz" in base_url:
             base_url += "/v1"
+        # Ollama's OpenAI-compatible endpoint is at /v1
+        elif "localhost" in base_url or "127.0.0.1" in base_url:
+            base_url += "/v1"
     return base_url
+
+
+def _is_local_endpoint(hostname: str, port: int) -> bool:
+    """Check if the target is a permitted local LLM endpoint."""
+    if not settings.ALLOW_LOCAL_LLM:
+        return False
+    if hostname not in ("localhost", "127.0.0.1", "::1"):
+        return False
+    if port not in settings.LOCAL_LLM_ALLOWED_PORTS:
+        return False
+    return True
 
 
 async def _validate_llm_target(base_url: str) -> None:
     """
     Validate the LLM endpoint URL against SSRF rules.
-    Uses the same blocklist as the scanner fetcher.
+    Uses the same blocklist as the scanner fetcher, with an exception
+    for local LLM servers (Ollama, LM Studio) when ALLOW_LOCAL_LLM is True.
     """
     try:
         validate_url_scheme(base_url)
@@ -74,6 +89,11 @@ async def _validate_llm_target(base_url: str) -> None:
     parsed = urlparse(base_url)
     if not parsed.hostname:
         raise LLMProxyError("Invalid base URL — no hostname found.", "INVALID_URL")
+
+    # Check for local LLM bypass before SSRF validation
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    if _is_local_endpoint(parsed.hostname, port):
+        return  # Allowed local endpoint — skip SSRF check
 
     try:
         await resolve_and_validate(parsed.hostname)

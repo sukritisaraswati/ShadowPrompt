@@ -5,7 +5,7 @@ All scoring weights, security limits, and detection rules are configurable here.
 """
 
 from pydantic_settings import BaseSettings
-from typing import List
+from typing import List, Set
 import ipaddress
 
 
@@ -24,6 +24,10 @@ class Settings(BaseSettings):
 
     # --- External APIs ---
     ANTHROPIC_API_KEY: str = ""
+
+    # --- Local LLM Support (Ollama / LM Studio) ---
+    ALLOW_LOCAL_LLM: bool = True  # Allow connections to localhost LLM servers
+    LOCAL_LLM_ALLOWED_PORTS: List[int] = [11434, 1234, 8080]  # Ollama, LM Studio, text-gen-webui
 
     # --- Database ---
     DATABASE_URL: str = "sqlite+aiosqlite:///./shadowprompt.db"

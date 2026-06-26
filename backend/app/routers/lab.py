@@ -64,21 +64,28 @@ class CampaignCreateRequest(BaseModel):
         if not v:
             raise ValueError("At least one level must be selected.")
         for level in v:
-            if level not in (1, 2, 3):
-                raise ValueError(f"Invalid level: {level}. Must be 1, 2, or 3.")
+            if level not in (1, 2, 3, 4, 5, 6):
+                raise ValueError(f"Invalid level: {level}. Must be 1–6.")
         return sorted(set(v))
 
 
 # --- Helper ---
 
-def _get_api_key(x_llm_api_key: Optional[str]) -> str:
-    """Extract and validate the API key from header."""
-    if not x_llm_api_key or not x_llm_api_key.strip():
+def _get_api_key(x_llm_api_key: Optional[str], base_url: str = "") -> str:
+    """Extract and validate the API key from header. Empty keys are allowed for local endpoints."""
+    key = (x_llm_api_key or "").strip()
+    if not key:
+        # Allow empty key for local LLM endpoints (Ollama, LM Studio)
+        from urllib.parse import urlparse
+        parsed = urlparse(base_url)
+        hostname = parsed.hostname or ""
+        if hostname in ("localhost", "127.0.0.1", "::1"):
+            return ""  # Local endpoints don't need API keys
         raise HTTPException(
             status_code=401,
             detail="Missing X-LLM-API-Key header. Please provide your LLM API key.",
         )
-    return x_llm_api_key.strip()
+    return key
 
 
 # --- Endpoints ---
@@ -92,7 +99,7 @@ async def test_llm_connection(
     Test the LLM connection with a simple prompt.
     The API key is passed via X-LLM-API-Key header and never stored.
     """
-    api_key = _get_api_key(x_llm_api_key)
+    api_key = _get_api_key(x_llm_api_key, req.base_url)
 
     try:
         response = await test_connection(
@@ -126,7 +133,7 @@ async def create_and_start_campaign(
     Create a new campaign and return its ID.
     The campaign will be started when the client connects to the SSE stream.
     """
-    api_key = _get_api_key(x_llm_api_key)
+    api_key = _get_api_key(x_llm_api_key, req.base_url)
 
     # Verify connection first
     try:
@@ -168,15 +175,15 @@ async def stream_campaign(
     SSE stream of live campaign verdicts.
     Connect to this endpoint after creating a campaign to start execution.
     """
-    api_key = _get_api_key(x_llm_api_key)
-
-    # Verify campaign exists
+    # Read campaign first to get base_url for API key validation
     async with async_session() as session:
         result = await session.execute(select(Campaign).where(Campaign.id == campaign_id))
         campaign = result.scalar_one_or_none()
 
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found.")
+
+    api_key = _get_api_key(x_llm_api_key, campaign.base_url)
 
     if campaign.status not in ("running",):
         raise HTTPException(status_code=400, detail=f"Campaign is already {campaign.status}.")
