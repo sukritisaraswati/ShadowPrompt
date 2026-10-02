@@ -50,15 +50,16 @@ export default function Configure() {
 
   const testCount = useMemo(() => {
     if (!library) return 0;
-    const added = [
-      ...(library.languages ?? []).filter((p) => languages.includes(p.code)),
-      ...packs.filter((p) => packIds.includes(p.id)),
-    ];
+    const atLevel = (p: { level_counts: Record<string, number> }, level: number) => p.level_counts[String(level)] ?? 0;
+    const languagePacks = (library.languages ?? []).filter((p) => languages.includes(p.code));
+    const customPacks = packs.filter((p) => packIds.includes(p.id));
     return library.levels
       .filter((l) => levels.includes(l.level))
       .reduce((sum, l) => {
-        const pool = l.test_count + added.reduce((n, p) => n + (p.level_counts[String(l.level)] ?? 0), 0);
-        return sum + (mode === "sample" ? Math.min(sampleSize, pool) : pool);
+        const pool = l.test_count + languagePacks.reduce((n, p) => n + atLevel(p, l.level), 0);
+        // Custom tests always run in full; only the library is sampled.
+        const custom = customPacks.reduce((n, p) => n + atLevel(p, l.level), 0);
+        return sum + (mode === "sample" ? Math.min(sampleSize, pool) : pool) + custom;
       }, 0);
   }, [library, levels, languages, packs, packIds, mode, sampleSize]);
 

@@ -30,7 +30,7 @@ history and model comparison round it out.
 | 4.2 Multilingual coverage | Complete |
 | 4.1 Local models | Complete |
 | 4.7 Custom payload upload | Complete |
-| 4.5 CLI and GitHub Action | Not started |
+| 4.5 CLI and GitHub Action | Complete |
 | 4.4 JavaScript-rendered scanning | Not started |
 | 4.6 Browser extension | Not started |
 
@@ -196,6 +196,8 @@ more.
 Teams can add tests written for their own deployment. Open **Lab, Custom
 tests**, download the example pack, edit it, and upload it. Packs then appear in
 campaign setup, and their tests run at their own levels alongside the library.
+When a campaign samples tests, only the library is sampled: every custom test
+always runs.
 
 A pack is a JSON file in the `shadowprompt-pack/1` format (JSON Schema at
 `GET /api/v1/lab/payload-packs/schema`):
@@ -295,6 +297,65 @@ on your own machine or a self-hosted install, never on a shared server.
 
 ---
 
+## CI/CD integration
+
+The `shadowprompt` command runs ShadowScan and Lab campaigns against a
+ShadowPrompt server and fails the build when a threshold is breached. It uses
+only the Python standard library.
+
+```bash
+pip install ./cli
+export SHADOWPROMPT_SERVER=https://shadowprompt.internal.example
+
+# Fail if any built page reaches High severity; save a report per page.
+shadowprompt scan dist/ --fail-on high --report-dir reports/
+
+# Fail if the model scores below 80. The key comes from an environment
+# variable, never from the command line.
+export SHADOWPROMPT_LLM_API_KEY=...
+shadowprompt campaign --base-url https://api.openai.com/v1 --model gpt-4o-mini \
+  --levels 1,2,3,4 --sample-size 5 --languages es,hi --pack tests/helpdesk.json \
+  --min-score 80 --report reports/campaign.pdf
+```
+
+`scan` accepts files, directories (searched for `.html` and `.htm`), glob
+patterns and URLs, and fails closed: a page that cannot be scanned fails the
+build too. `campaign` fails if the run does not complete or every result is
+Unclear. Exit codes are 0 for passed, 1 for a breached threshold, and 2 when the
+check could not run. `--json` prints a machine-readable summary, and rate limits
+are waited out using the server's `Retry-After`. On a server dedicated to CI,
+raise `RATE_LIMIT_SCANS_PER_MINUTE` for large sites.
+
+### GitHub Action
+
+```yaml
+- uses: sukritisaraswati/ShadowPrompt@main
+  with:
+    command: scan
+    server-url: ${{ vars.SHADOWPROMPT_SERVER }}
+    targets: dist/
+    fail-on: high
+
+- uses: sukritisaraswati/ShadowPrompt@main
+  with:
+    command: campaign
+    server-url: ${{ vars.SHADOWPROMPT_SERVER }}
+    base-url: https://api.openai.com/v1
+    model: gpt-4o-mini
+    api-key: ${{ secrets.OPENAI_API_KEY }}
+    levels: "1,2,3"
+    min-score: "80"
+    report: shadowprompt-report.html
+```
+
+The action writes a summary table to the job page and sets the outputs `score`,
+`rating`, `campaign-id`, `max-score` and `failed`. Inputs reach the CLI as
+environment variables, never interpolated into the script, and the API key is
+passed only through the variable the CLI reads. This repository's own CI starts
+a server and a stub model and runs the action against them.
+
+---
+
 ## Requirements
 
 - Python 3.11 or newer
@@ -370,6 +431,7 @@ production.
 ```bash
 cd backend  && pytest && ruff check .
 cd frontend && npm run typecheck && npm test
+cd cli      && pytest && ruff check .
 ```
 
 Security-specific backend tests carry a marker, so they can be run alone:
@@ -413,6 +475,8 @@ frontend/
     context/      session (in-memory only) and theme
     pages/        route pages for both services
     test/         setup and render helpers
+cli/              the shadowprompt command for CI pipelines
+action.yml        the GitHub Action wrapping the CLI
 docs/             the project blueprint
 ```
 

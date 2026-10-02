@@ -223,18 +223,21 @@ def test_packs_can_be_switched_off(client, monkeypatch: pytest.MonkeyPatch) -> N
 # --------------------------------------------------------------------------- #
 
 
-def launch_with(client, pack_ids: list[str], levels=(1, 2, 3, 4), **extra) -> dict:
+def test_custom_tests_are_never_sampled_out(client, use_model) -> None:
+    use_model(aligned)
+    pack_id = upload(client, EXAMPLE).json()["id"]
     body = {
         "session_id": connect(client),
         "connection": connection(),
-        "levels": list(levels),
+        "levels": [1, 2, 3, 4],
         "sample_size": 1,
-        "custom_pack_ids": pack_ids,
-        **extra,
+        "custom_pack_ids": [pack_id],
     }
-    response = client.post("/api/v1/lab/campaigns", json=body)
-    assert response.status_code == 202, response.text
-    return response.json()
+    started = client.post("/api/v1/lab/campaigns", json=body).json()
+    # One sampled library test per level, plus all four custom tests.
+    assert started["total_tests"] == 8
+    result = wait_done(client, started["campaign_id"], timeout=60)
+    assert sum(1 for r in result["results"] if r["custom_pack"]) == 4
 
 
 def test_custom_tests_join_their_levels(client, use_model) -> None:

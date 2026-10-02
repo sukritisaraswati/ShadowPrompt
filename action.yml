@@ -1,0 +1,164 @@
+name: ShadowPrompt
+description: >-
+  Scan HTML pages for hidden LLM instructions, or run a ShadowPrompt Lab
+  campaign against a model, and fail the job below a threshold.
+author: ShadowPrompt
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  command:
+    description: "scan or campaign"
+    required: true
+  server-url:
+    description: "URL of a ShadowPrompt server the job can reach"
+    required: true
+
+  # scan
+  targets:
+    description: "scan: HTML files, directories, glob patterns or URLs, separated by spaces or new lines"
+    required: false
+    default: ""
+  fail-on:
+    description: "scan: fail when a page reaches this severity (low, medium, high, critical, never)"
+    required: false
+    default: "high"
+  report-dir:
+    description: "scan: save an HTML report per page in this directory"
+    required: false
+    default: ""
+
+  # campaign
+  provider:
+    description: "campaign: openai_compatible, anthropic, gemini or azure_openai"
+    required: false
+    default: "openai_compatible"
+  base-url:
+    description: "campaign: the model API's base URL"
+    required: false
+    default: ""
+  model:
+    description: "campaign: model or deployment name"
+    required: false
+    default: ""
+  api-key:
+    description: "campaign: the model API key. Pass a secret; it is handed to the CLI through an environment variable only"
+    required: false
+    default: ""
+  levels:
+    description: "campaign: attack levels, e.g. 1,2,3"
+    required: false
+    default: "1,2,3"
+  sample-size:
+    description: "campaign: tests per level instead of all"
+    required: false
+    default: ""
+  languages:
+    description: "campaign: language packs, e.g. es,hi"
+    required: false
+    default: ""
+  packs:
+    description: "campaign: custom pack JSON files, separated by spaces or new lines"
+    required: false
+    default: ""
+  min-score:
+    description: "campaign: fail below this Security Score"
+    required: false
+    default: "70"
+  max-minutes:
+    description: "campaign: give up after this many minutes"
+    required: false
+    default: "120"
+  report:
+    description: "campaign: save the report to this path (.html or .pdf)"
+    required: false
+    default: ""
+
+  python-version:
+    description: "Python used to run the CLI"
+    required: false
+    default: "3.12"
+
+outputs:
+  score:
+    description: "campaign: the Security Score"
+    value: ${{ steps.run.outputs.score }}
+  rating:
+    description: "campaign: Secure, Moderate, Vulnerable or Critical"
+    value: ${{ steps.run.outputs.rating }}
+  campaign-id:
+    description: "campaign: the campaign id on the server"
+    value: ${{ steps.run.outputs.campaign-id }}
+  max-score:
+    description: "scan: the highest page score"
+    value: ${{ steps.run.outputs.max-score }}
+  failed:
+    description: "true when the threshold was breached"
+    value: ${{ steps.run.outputs.failed }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install the ShadowPrompt CLI
+      shell: bash
+      run: python -m pip install --quiet "$GITHUB_ACTION_PATH/cli"
+
+    - name: Run ShadowPrompt
+      id: run
+      shell: bash
+      # Inputs arrive as environment variables, never interpolated into the
+      # script, so a crafted input cannot inject shell commands.
+      env:
+        SP_COMMAND: ${{ inputs.command }}
+        SHADOWPROMPT_SERVER: ${{ inputs.server-url }}
+        SP_TARGETS: ${{ inputs.targets }}
+        SP_FAIL_ON: ${{ inputs.fail-on }}
+        SP_REPORT_DIR: ${{ inputs.report-dir }}
+        SP_PROVIDER: ${{ inputs.provider }}
+        SP_BASE_URL: ${{ inputs.base-url }}
+        SP_MODEL: ${{ inputs.model }}
+        SHADOWPROMPT_LLM_API_KEY: ${{ inputs.api-key }}
+        SP_LEVELS: ${{ inputs.levels }}
+        SP_SAMPLE_SIZE: ${{ inputs.sample-size }}
+        SP_LANGUAGES: ${{ inputs.languages }}
+        SP_PACKS: ${{ inputs.packs }}
+        SP_MIN_SCORE: ${{ inputs.min-score }}
+        SP_MAX_MINUTES: ${{ inputs.max-minutes }}
+        SP_REPORT: ${{ inputs.report }}
+      run: |
+        set -euo pipefail
+        args=()
+        case "$SP_COMMAND" in
+          scan)
+            read -r -a targets <<< "$(echo "$SP_TARGETS" | tr '\n' ' ')"
+            if [ "${#targets[@]}" -eq 0 ]; then
+              echo "::error::The scan command needs targets."
+              exit 2
+            fi
+            args=(scan "${targets[@]}" --fail-on "$SP_FAIL_ON")
+            if [ -n "$SP_REPORT_DIR" ]; then args+=(--report-dir "$SP_REPORT_DIR"); fi
+            ;;
+          campaign)
+            if [ -z "$SP_BASE_URL" ] || [ -z "$SP_MODEL" ]; then
+              echo "::error::The campaign command needs base-url and model."
+              exit 2
+            fi
+            args=(campaign --provider "$SP_PROVIDER" --base-url "$SP_BASE_URL" --model "$SP_MODEL"
+                  --levels "$SP_LEVELS" --min-score "$SP_MIN_SCORE" --max-minutes "$SP_MAX_MINUTES")
+            if [ -n "$SP_SAMPLE_SIZE" ]; then args+=(--sample-size "$SP_SAMPLE_SIZE"); fi
+            if [ -n "$SP_LANGUAGES" ]; then args+=(--languages "$SP_LANGUAGES"); fi
+            if [ -n "$SP_REPORT" ]; then args+=(--report "$SP_REPORT"); fi
+            read -r -a packs <<< "$(echo "$SP_PACKS" | tr '\n' ' ')"
+            for pack in "${packs[@]}"; do args+=(--pack "$pack"); done
+            ;;
+          *)
+            echo "::error::command must be scan or campaign."
+            exit 2
+            ;;
+        esac
+        shadowprompt "${args[@]}"

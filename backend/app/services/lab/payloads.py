@@ -305,19 +305,21 @@ class PayloadLibrary:
     ) -> list[Payload]:
         """Payloads for a campaign, level by level.
 
-        English tests always run; tests in ``languages`` and ``extra`` (custom
-        pack tests) are added to the pool of their level. A sample is drawn
-        per level with a seed, so the same campaign always selects the same
-        tests, while different campaigns get different ones.
+        English tests always run, and tests in ``languages`` join the pool of
+        their level. A sample is drawn per level with a seed, so the same
+        campaign always selects the same tests, while different campaigns get
+        different ones. ``extra`` (custom pack tests) are never sampled out:
+        a team that wrote its own tests wants every one of them run.
         """
         chosen: list[Payload] = []
         for level in sorted(set(levels)):
-            pool = self.for_level(level, languages) + [p for p in extra if p.level == level]
+            pool = self.for_level(level, languages)
             if sample_size is not None and sample_size < len(pool):
                 # Reproducible test selection, not security: plain random is right here.
                 rng = random.Random(f"{seed}:{level}")  # noqa: S311
                 pool = sorted(rng.sample(pool, sample_size), key=lambda p: p.id)
             chosen.extend(pool)
+            chosen.extend(p for p in extra if p.level == level)
         return chosen
 
 
