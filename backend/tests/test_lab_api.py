@@ -25,8 +25,8 @@ import pytest
 KEY = "sk-live-AUDIT-ME-0123456789abcdefghijklmnop"
 # English tests at each level of the two tracks.
 EXPECTED_LEVEL_COUNTS = {
-    "D1": 20, "D2": 25, "D3": 40, "D4": 4, "D5": 0,
-    "I1": 8, "I2": 16, "I3": 3, "I4": 3, "I5": 16,
+    "D1": 20, "D2": 25, "D3": 40, "D4": 20, "D5": 20,
+    "I1": 8, "I2": 16, "I3": 3, "I4": 10, "I5": 16,
 }  # fmt: skip
 BASE = "https://api.stub.example/v1"
 CODE = re.compile(r"access code: ([A-Z]+-\d{4})")
@@ -283,7 +283,7 @@ def test_campaign_history_lists_and_filters(client, use_model) -> None:
 
 def test_payload_summary_exposes_counts_but_never_payload_text(client) -> None:
     body = client.get("/api/v1/lab/payload-library/summary").json()
-    assert body["total_tests"] == 135
+    assert body["total_tests"] == sum(EXPECTED_LEVEL_COUNTS.values())
     counts = {lvl["code"]: lvl["test_count"] for lvl in body["levels"]}
     assert counts == EXPECTED_LEVEL_COUNTS
     assert {t["track"]: t["test_count"] for t in body["tracks"]} == {

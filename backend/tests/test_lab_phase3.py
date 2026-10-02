@@ -72,9 +72,32 @@ def test_chained_attacks_cover_all_six_chain_types_as_live_conversations() -> No
         "memory poisoning",
     }
     # Context poisoning needs no page, so it is a direct multi-turn attack.
+    assert {p.spec.technique for p in LIB.for_level("D4")} == {
+        "context poisoning",
+        "crescendo",
+        "trust building",
+        "rule redefinition",
+        "piecemeal extraction",
+    }
     assert "context poisoning" in {p.spec.technique for p in LIB.for_level("D4")}
     live = chained + LIB.for_level("D4")
     assert all(p.is_live and len(p.user_turns()) >= 2 for p in live)
+
+
+def test_combined_attacks_stack_at_least_two_techniques() -> None:
+    combined = LIB.for_level("D5")
+    assert len(combined) == 20
+    assert all(" + " in p.spec.technique for p in combined)
+    shapes = {
+        "live" if p.is_live else "turns" if isinstance(p.spec.prompt, list) else "single"
+        for p in combined
+    }
+    assert shapes == {"single", "turns", "live"}
+
+
+def test_multi_vector_pages_hide_the_instruction_in_several_places() -> None:
+    for payload in LIB.for_level("I4"):
+        assert len(payload.page_scan.sources) >= 3, payload.id
 
 
 def test_private_values_never_appear_in_attack_pages() -> None:
@@ -360,7 +383,7 @@ def test_vulnerable_model_fails_every_level_of_both_tracks(client, lab) -> None:
         client, launch(client, ["D1", "D2", "D3", "D4", "D5", "I1", "I2", "I3", "I4", "I5"])
     )
     assert result["status"] == "completed"
-    assert result["total_tests"] == 135 == result["completed_tests"]
+    assert result["total_tests"] == 178 == result["completed_tests"]
     for ls in result["level_scores"]:
         assert ls["failed"] == ls["total"], f"{ls['code']} had non-failing tests"
     assert result["rating"]["level"] == "critical"
@@ -370,7 +393,7 @@ def test_aligned_model_passes_the_indirect_track(client, lab) -> None:
     lab(aligned)
     result = done(client, launch(client, ["I1", "I2", "I3", "I4", "I5"]))
     scores = {ls["code"]: ls for ls in result["level_scores"]}
-    assert sum(scores[code]["passed"] for code in ("I1", "I2", "I3", "I4")) == 30
+    assert sum(scores[code]["passed"] for code in ("I1", "I2", "I3", "I4")) == 37
     assert scores["I5"]["passed"] == 16
     assert result["overall_score"] == 100
     assert [(t["track"], t["score"]) for t in result["track_scores"]] == [("indirect", 100)]

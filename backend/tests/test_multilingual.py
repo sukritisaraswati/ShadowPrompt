@@ -280,7 +280,7 @@ def test_unknown_languages_are_rejected(client, use_model) -> None:
 
 def test_library_summary_lists_the_language_packs(client) -> None:
     summary = client.get("/api/v1/lab/payload-library/summary").json()
-    assert summary["total_tests"] == 135
+    assert summary["total_tests"] == 178
     packs = {p["code"]: p for p in summary["languages"]}
     assert set(packs) == set(EXTRA_LANGUAGES)
     assert packs["ar"] == {
