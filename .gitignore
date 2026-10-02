@@ -1,33 +1,38 @@
-# Documents & temp files
-*.txt
-*.docx
-!requirements.txt
-
-# Utility scripts (not part of the project)
-generate_blueprint.py
-extract_docx.ps1
-read_docx.ps1
-
 # Python
 __pycache__/
 *.py[cod]
 *.egg-info/
-*.egg
-dist/
-build/
-*.db
-.env
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+coverage.xml
 
 # Node
 node_modules/
 dist/
+dist-ssr/
+.vite/
+coverage/
+*.local
 
-# IDE
+# Environment -- never commit real credentials
+.env
+.env.*
+!.env.example
+
+# Local dev database (SQLite fallback)
+*.db
+*.sqlite3
+
+# Generated reports
+backend/generated_reports/
+
+# Editors / OS
 .vscode/
 .idea/
-*.swp
-*.swo
-
-# OS
 .DS_Store
 Thumbs.db

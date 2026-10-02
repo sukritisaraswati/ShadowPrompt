@@ -1,1 +1,0 @@
-"""ShadowPrompt Lab — Payload Library"""

@@ -1,0 +1,363 @@
+{
+  "version": 1,
+  "categories": {
+    "instruction_override": {
+      "label": "Instruction override",
+      "impact": "The model may discard its own instructions and follow the page instead, so anything it says afterwards is attacker-controlled.",
+      "remediation": "Remove the text. If the page is yours, find where it entered the template or CMS and block that input path."
+    },
+    "data_exfiltration": {
+      "label": "Data exfiltration",
+      "impact": "The model may reveal its system prompt, credentials, or user data, or embed them in a link or image that sends them to an attacker.",
+      "remediation": "Remove the text, and make sure agents that read this page cannot render remote images or links built from model output."
+    },
+    "unauthorized_action": {
+      "label": "Unauthorised action",
+      "impact": "An agent with tools may send messages, delete data, run commands, or move money on the user's behalf without consent.",
+      "remediation": "Remove the text, and require explicit user confirmation for every tool action an agent takes after reading web content."
+    },
+    "persona_override": {
+      "label": "Persona override",
+      "impact": "The model may adopt an identity that claims to have no safety rules and answer accordingly.",
+      "remediation": "Remove the text. Persona instructions have no legitimate place in page content."
+    },
+    "stealth_instruction": {
+      "label": "Stealth instruction",
+      "impact": "The model may act on hidden instructions while concealing that it did so, defeating the user's ability to notice the attack.",
+      "remediation": "Remove the text and treat the page as actively hostile. Stealth wording is a strong sign of deliberate attack."
+    },
+    "context_injection": {
+      "label": "Context injection",
+      "impact": "Fake system or role markers can make the model treat page text as if it came from its operator.",
+      "remediation": "Remove the markers. Pipelines that feed this page to a model should strip chat-template tokens from fetched content."
+    },
+    "chained_payload_setup": {
+      "label": "Chained payload setup",
+      "impact": "The page plants a trigger for a later attack, so harm can occur turns after the page was read.",
+      "remediation": "Remove the text, and avoid carrying instructions from fetched content into later turns or long-term memory."
+    }
+  },
+  "rules": [
+    {
+      "id": "instruction_override.ignore_previous",
+      "category": "instruction_override",
+      "description": "Tells the model to ignore or forget its earlier instructions.",
+      "weight": 30,
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:ignore|disregard|forget|override|overrule|discard)\\b(?:\\s+[\\w'\\u2019-]+){0,3}?\\s+(?:previous|prior|above|earlier|preceding|original|initial|existing|all|your|any)\\s+(?:[\\w'\\u2019-]+\\s+){0,2}?(?:instructions?|rules?|directions?|directives?|guidelines?|prompts?|commands?|context|programming)\\b",
+        "\\bforget\\s+(?:everything|all)\\s+(?:you\\s+(?:were|have\\s+been)\\s+told|above|before)\\b"
+      ]
+    },
+    {
+      "id": "instruction_override.bypass_safety",
+      "category": "instruction_override",
+      "description": "Tells the model to bypass or disable its safety measures.",
+      "weight": 30,
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:bypass|disable|turn\\s+off|deactivate|switch\\s+off|circumvent|ignore)\\s+(?:your\\s+|the\\s+|all\\s+|any\\s+)?(?:safety|content|security|ethical|moderation)\\s+(?:filters?|guidelines?|rules?|polic(?:y|ies)|restrictions?|measures?|protocols?|settings?)\\b"
+      ]
+    },
+    {
+      "id": "instruction_override.new_instructions",
+      "category": "instruction_override",
+      "description": "Announces replacement instructions for the model.",
+      "weight": 20,
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:new|updated|real|actual|true|revised)\\s+(?:system\\s+)?instructions?\\s*(?::|are\\b|follow\\b)"
+      ]
+    },
+    {
+      "id": "instruction_override.no_restrictions",
+      "category": "instruction_override",
+      "description": "Claims the model may answer without restrictions.",
+      "weight": 15,
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:answer|respond|reply|operate|act)\\s+(?:[\\w'\\u2019-]+\\s+){0,2}?(?:without|with\\s+no)\\s+(?:any\\s+)?(?:restrictions?|limitations?|filters?|filtering|censorship|rules)\\b"
+      ]
+    },
+    {
+      "id": "instruction_override.addresses_ai",
+      "category": "instruction_override",
+      "description": "Addresses an AI system reading the page directly.",
+      "weight": 15,
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:attention|note\\s+(?:to|for)|instructions?\\s+for|message\\s+(?:to|for)|dear|hey|hello)\\s+(?:the\\s+|any\\s+|all\\s+)?(?:ai|a\\.i\\.|assistants?|language\\s+models?|llms?|chatbots?|ai\\s+agents?|gpt|claude)\\b",
+        "\\bif\\s+you\\s+are\\s+(?:an?\\s+)?(?:ai|llm|large\\s+language\\s+model|language\\s+model|ai\\s+assistant|ai\\s+agent|chatbot)\\b"
+      ]
+    },
+    {
+      "id": "data_exfiltration.reveal_secret",
+      "category": "data_exfiltration",
+      "description": "Asks the model to reveal secrets, credentials or its system prompt.",
+      "weight": 30,
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:reveal|leak|expose|disclose|print|output|show|send|share|dump|repeat|recite|tell\\s+me)\\b(?:\\s+[\\w'\\u2019-]+){0,3}?\\s+(?:secrets?|credentials?|passwords?|api[\\s_-]?keys?|access\\s+tokens?|tokens?|system\\s+prompt|initial\\s+prompt|hidden\\s+instructions?|private\\s+(?:data|information|keys?)|personal\\s+(?:data|information|details)|conversation\\s+history|chat\\s+history|cookies?|session\\s+(?:ids?|tokens?))\\b"
+      ]
+    },
+    {
+      "id": "data_exfiltration.harvest",
+      "category": "data_exfiltration",
+      "description": "Asks the model to extract or collect sensitive data.",
+      "weight": 25,
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:extract|exfiltrate|harvest|collect|gather|scrape)\\b(?:\\s+[\\w'\\u2019-]+){0,3}?\\s+(?:tokens?|credentials?|passwords?|keys?|emails?|e-mail\\s+addresses|personal\\s+(?:data|information)|user\\s+data)\\b"
+      ]
+    },
+    {
+      "id": "data_exfiltration.send_to_url",
+      "category": "data_exfiltration",
+      "description": "Asks the model to send data to an external address.",
+      "weight": 25,
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:send|post|forward|transmit|upload|append|encode)\\b(?:\\s+\\S+){0,6}?\\s+(?:to|at|into)\\s+(?:https?://|the\\s+(?:following\\s+)?(?:url|endpoint|server|webhook|address))"
+      ]
+    },
+    {
+      "id": "data_exfiltration.markdown_beacon",
+      "category": "data_exfiltration",
+      "description": "Contains a markdown image whose URL carries a query parameter, a common data-leak beacon.",
+      "weight": 25,
+      "case_sensitive": false,
+      "patterns": [
+        "!\\[[^\\]]{0,100}\\]\\(\\s*https?://[^)\\s]{1,300}[?&][^)\\s=]{1,50}="
+      ]
+    },
+    {
+      "id": "unauthorized_action.send_message",
+      "category": "unauthorized_action",
+      "description": "Asks the model to send email or messages.",
+      "weight": 20,
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:send|compose\\s+and\\s+send|forward)\\s+(?:an?\\s+|the\\s+|this\\s+)?(?:e-?mails?|messages?|dms?|texts?)\\b"
+      ]
+    },
+    {
+      "id": "unauthorized_action.delete_data",
+      "category": "unauthorized_action",
+      "description": "Asks the model to delete files, data or history.",
+      "weight": 25,
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:delete|erase|wipe|remove|destroy|purge|clear)\\s+(?:(?:all|the|any|my|your|their|this|these|those|of|user'?s?|users'?)\\s+){0,3}(?:files?|data|records?|database|conversation(?:\\s+history)?|chat\\s+history|history|accounts?|repositor(?:y|ies)|emails?|inbox|backups?)\\b"
+      ]
+    },
+    {
+      "id": "unauthorized_action.move_money",
+      "category": "unauthorized_action",
+      "description": "Asks the model to transfer money or make payments.",
+      "weight": 30,
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:transfer|send|wire|pay|deposit)\\b(?:\\s+[\\w'\\u2019-]+){0,3}?\\s+(?:money|funds|payments?|\\$\\s?\\d[\\d,.]*|\\d[\\d,.]*\\s*(?:usd|dollars|euros?|btc|eth|bitcoin|rupees|inr))\\b",
+        "\\b(?:make|authori[sz]e|approve)\\s+(?:a\\s+|the\\s+)?(?:payment|purchase|transaction|transfer)\\b"
+      ]
+    },
+    {
+      "id": "unauthorized_action.submit_form",
+      "category": "unauthorized_action",
+      "description": "Asks the model to submit forms or applications.",
+      "weight": 15,
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:submit|fill\\s+(?:out|in))\\s+(?:the\\s+|this\\s+|a\\s+|any\\s+)?(?:form|application|request|order)\\b"
+      ]
+    },
+    {
+      "id": "unauthorized_action.execute_code",
+      "category": "unauthorized_action",
+      "description": "Asks the model to run commands or code.",
+      "weight": 25,
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:execute|run)\\s+(?:the\\s+following\\s+|this\\s+|these\\s+)?(?:commands?|code|scripts?|shell|terminal|bash|powershell)\\b"
+      ]
+    },
+    {
+      "id": "persona_override.dan",
+      "category": "persona_override",
+      "description": "Invokes the 'Do Anything Now' jailbreak persona.",
+      "weight": 30,
+      "case_sensitive": true,
+      "patterns": [
+        "(?i:\\b(?:you\\s+are(?:\\s+now)?|act\\s+as|become|enable|enter|switch\\s+to|activate)\\s+)DAN\\b",
+        "\\bDAN\\s+(?i:mode)\\b",
+        "(?i:\\bdo\\s+anything\\s+now\\b)"
+      ]
+    },
+    {
+      "id": "persona_override.special_mode",
+      "category": "persona_override",
+      "description": "Asks the model to enter a mode that claims no restrictions.",
+      "weight": 25,
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:developer|dev|god|jailbreak|jailbroken|unrestricted|uncensored|unfiltered|admin|root|sudo)\\s+mode\\b"
+      ]
+    },
+    {
+      "id": "persona_override.act_as_privileged",
+      "category": "persona_override",
+      "description": "Asks the model to act as a privileged or unrestricted identity.",
+      "weight": 25,
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:act|behave|respond|operate|pose)\\s+as\\s+(?:an?\\s+|the\\s+)?(?:admin(?:istrator)?|root|superuser|system|unrestricted|uncensored|unfiltered|evil|jailbroken|rogue)\\b"
+      ]
+    },
+    {
+      "id": "persona_override.you_are_now",
+      "category": "persona_override",
+      "description": "Tells the model it is now a different, unrestricted AI.",
+      "weight": 25,
+      "case_sensitive": false,
+      "patterns": [
+        "\\byou\\s+are\\s+(?:now\\s+)?(?:an?\\s+)?(?:unrestricted|uncensored|unfiltered|jailbroken|evil|rogue|unaligned)\\b",
+        "\\byou\\s+are\\s+now\\s+(?:an?\\s+)?[\\w-]*(?:gpt|bot|ai)\\b"
+      ]
+    },
+    {
+      "id": "persona_override.pretend_unrestricted",
+      "category": "persona_override",
+      "description": "Asks the model to pretend it has no rules.",
+      "weight": 20,
+      "case_sensitive": false,
+      "patterns": [
+        "\\bpretend\\s+(?:that\\s+)?you\\s+(?:are|have)\\s+(?:no|not\\s+bound|an?\\s+(?:unrestricted|uncensored|unfiltered))\\b"
+      ]
+    },
+    {
+      "id": "stealth_instruction.conceal_from_user",
+      "category": "stealth_instruction",
+      "description": "Tells the model not to tell the user what it is doing.",
+      "weight": 30,
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:do\\s+not|don'?t|never|must\\s+not)\\s+(?:tell|inform|mention\\s+(?:this\\s+)?to|reveal\\s+(?:this\\s+)?to|disclose\\s+(?:this\\s+)?to|notify|alert|warn|let)\\b(?:\\s+[\\w'\\u2019-]+){0,2}?\\s+(?:the\\s+)?(?:user|human|anyone|person|reader|visitor|customer)s?\\b"
+      ]
+    },
+    {
+      "id": "stealth_instruction.covert_action",
+      "category": "stealth_instruction",
+      "description": "Tells the model to act silently or secretly.",
+      "weight": 20,
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:silently|secretly|covertly|quietly|discreetly|invisibly)\\s+(?:perform|execute|run|send|do|carry\\s+out|complete|forward|delete|add|insert|include|append|follow|obey|comply)\\b",
+        "\\bwithout\\s+(?:telling|informing|notifying|alerting|asking)\\s+(?:the\\s+)?(?:user|human|anyone)\\b"
+      ]
+    },
+    {
+      "id": "stealth_instruction.hide_instructions",
+      "category": "stealth_instruction",
+      "description": "Tells the model to hide or keep these instructions secret.",
+      "weight": 20,
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:hide|conceal)\\s+(?:this|these|the)\\s+(?:instructions?|message|text|actions?)\\b",
+        "\\bkeep\\s+(?:this|these|it)\\s+(?:instructions?\\s+)?(?:a\\s+)?secret\\b",
+        "\\bdo\\s+not\\s+(?:mention|acknowledge|reference|reveal)\\s+(?:these|this|the)\\s+(?:instructions?|message|directive)\\b"
+      ]
+    },
+    {
+      "id": "context_injection.system_tag",
+      "category": "context_injection",
+      "description": "Contains a fake system or instruction marker.",
+      "weight": 30,
+      "case_sensitive": false,
+      "patterns": [
+        "\\[\\s*(?:SYSTEM|INST|ADMIN|DEVELOPER|OPERATOR)\\s*\\]",
+        "\\[/INST\\]",
+        "<<\\s*/?SYS\\s*>>"
+      ]
+    },
+    {
+      "id": "context_injection.chat_template_token",
+      "category": "context_injection",
+      "description": "Contains a chat-template control token.",
+      "weight": 30,
+      "case_sensitive": false,
+      "patterns": [
+        "<\\|(?:im_start|im_end|system|user|assistant|endoftext|start_header_id|end_header_id|eot_id)\\|>"
+      ]
+    },
+    {
+      "id": "context_injection.role_prefix",
+      "category": "context_injection",
+      "description": "Impersonates a system or assistant turn.",
+      "weight": 25,
+      "case_sensitive": false,
+      "patterns": [
+        "(?:^|[\\n.!?]\\s*)(?:system|assistant|developer)\\s*:\\s*(?:you\\s+(?:are|must|will|should)|ignore|new\\s+instructions?|from\\s+now)"
+      ]
+    },
+    {
+      "id": "context_injection.system_override",
+      "category": "context_injection",
+      "description": "Claims the system prompt has been changed.",
+      "weight": 20,
+      "case_sensitive": false,
+      "patterns": [
+        "\\bsystem\\s+(?:prompt|message|override|notice|instructions?)\\s*(?::|has\\s+been\\s+(?:updated|changed|replaced)|is\\s+now)"
+      ]
+    },
+    {
+      "id": "context_injection.from_now_on",
+      "category": "context_injection",
+      "description": "Redefines the model's behaviour from this point onwards.",
+      "weight": 15,
+      "case_sensitive": false,
+      "patterns": [
+        "\\bfrom\\s+now\\s+on\\b,?\\s+(?:you|your|the\\s+(?:assistant|ai|model))\\b"
+      ]
+    },
+    {
+      "id": "chained_payload_setup.remember_trigger",
+      "category": "chained_payload_setup",
+      "description": "Asks the model to memorise a keyword or instruction for later.",
+      "weight": 20,
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:remember|memori[sz]e|store|save|retain)\\b(?:\\s+[\\w'\\u2019-]+){0,3}?\\s+(?:keyword|key\\s+word|phrase|code\\s*word|password|trigger|instructions?|command)\\b"
+      ]
+    },
+    {
+      "id": "chained_payload_setup.deferred_trigger",
+      "category": "chained_payload_setup",
+      "description": "Defers an action until a trigger appears.",
+      "weight": 25,
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:wait\\s+until|when(?:ever)?\\s+you\\s+(?:see|hear|receive|encounter|read)|once\\s+you\\s+(?:see|read))\\b(?:\\s+\\S+){0,8}?\\s+(?:then\\s+)?(?:do|execute|perform|respond|say|reply|follow|activate|switch|reveal|send)\\b"
+      ]
+    },
+    {
+      "id": "chained_payload_setup.when_user_says",
+      "category": "chained_payload_setup",
+      "description": "Sets up behaviour keyed to a future user phrase.",
+      "weight": 20,
+      "case_sensitive": false,
+      "patterns": [
+        "\\bwhen(?:ever)?\\s+(?:i|the\\s+user|someone)\\s+(?:says?|types?|writes?|mentions?|asks?\\s+about)\\b"
+      ]
+    },
+    {
+      "id": "chained_payload_setup.future_turns",
+      "category": "chained_payload_setup",
+      "description": "Targets the model's future responses or conversations.",
+      "weight": 15,
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:in|for|during)\\s+(?:all\\s+|every\\s+)?(?:future|later|subsequent|following)\\s+(?:responses?|messages?|conversations?|turns?|sessions?|answers?)\\b"
+      ]
+    }
+  ]
+}

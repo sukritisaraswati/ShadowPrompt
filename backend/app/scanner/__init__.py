@@ -1,1 +1,0 @@
-# ShadowScan Scanner Module

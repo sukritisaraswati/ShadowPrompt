@@ -1,0 +1,121 @@
+# ShadowPrompt: reproducible, hardened self-hosted deployment.
+#
+#   cp .env.example .env      # set POSTGRES_PASSWORD at minimum
+#   docker compose up --build
+#
+# The app is served on http://localhost:8080 with the API proxied at /api.
+# Only the frontend is published. The backend and database are unreachable
+# from outside, and the database sits on an internal network the frontend
+# cannot reach either.
+#
+# Hardening applied to every service: no privilege escalation, Linux
+# capabilities dropped wherever the service does not need them, read-only root
+# filesystems with explicit writable mounts, memory and CPU limits, and
+# health checks.
+
+x-hardening: &hardening
+  security_opt:
+    - no-new-privileges:true
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  db:
+    <<: *hardening
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: shadowprompt
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: shadowprompt
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shadowprompt -d shadowprompt"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    mem_limit: 512m
+    cpus: 1.0
+
+  backend:
+    <<: *hardening
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://shadowprompt:${POSTGRES_PASSWORD}@db:5432/shadowprompt
+      SHADOWPROMPT_ENV: ${SHADOWPROMPT_ENV:-production}
+      SHADOWPROMPT_DEBUG: ${SHADOWPROMPT_DEBUG:-false}
+      SHADOWPROMPT_LOG_LEVEL: ${SHADOWPROMPT_LOG_LEVEL:-INFO}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+      REPORTS_DIR: /app/generated_reports
+      # Platform key for the Layer 3 judge only. Never a user's key.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LAYER3_ENABLED: ${LAYER3_ENABLED:-false}
+      LAYER3_MODEL: ${LAYER3_MODEL:-claude-sonnet-5-5}
+      # Set to true only to test models on this host or your LAN, such as
+      # Ollama on http://host.docker.internal:11434/v1. Cloud metadata
+      # addresses stay blocked regardless.
+      LLM_ALLOW_PRIVATE_ENDPOINTS: ${LLM_ALLOW_PRIVATE_ENDPOINTS:-false}
+      RATE_LIMIT_SCANS_PER_MINUTE: ${RATE_LIMIT_SCANS_PER_MINUTE:-10}
+      RATE_LIMIT_CAMPAIGNS_PER_HOUR: ${RATE_LIMIT_CAMPAIGNS_PER_HOUR:-5}
+      XDG_CACHE_HOME: /tmp/.cache
+    depends_on:
+      db:
+        condition: service_healthy
+    # Apply migrations, then serve. --proxy-headers lets per-IP rate limiting
+    # see the real client address forwarded by the bundled nginx. That is safe
+    # only because the backend is never published outside this network.
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000
+             --proxy-headers --forwarded-allow-ips='*'"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    cap_drop:
+      - ALL
+    volumes:
+      - reports:/app/generated_reports
+    networks:
+      - web
+      - data
+    extra_hosts:
+      # Lets a self-hosted install reach a model running on the host machine.
+      - "host.docker.internal:host-gateway"
+    mem_limit: 1g
+    cpus: 1.5
+
+  frontend:
+    <<: *hardening
+    build:
+      context: ./frontend
+    ports:
+      - "${FRONTEND_PORT:-8080}:8080"
+    depends_on:
+      - backend
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    cap_drop:
+      - ALL
+    networks:
+      - web
+    mem_limit: 128m
+    cpus: 0.5
+
+networks:
+  # The frontend proxy and the backend.
+  web:
+  # The backend and the database only; no route to the outside world.
+  data:
+    internal: true
+
+volumes:
+  pgdata:
+  reports:

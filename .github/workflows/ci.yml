@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (lint, tests, migrations)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: shadowprompt
+          POSTGRES_PASSWORD: shadowprompt
+          POSTGRES_DB: shadowprompt_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U shadowprompt"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,postgres,pdf,layer3]"
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Tests
+        run: pytest --cov=app --cov-report=term-missing
+
+      - name: Migrations apply cleanly on PostgreSQL
+        env:
+          DATABASE_URL: postgresql+asyncpg://shadowprompt:shadowprompt@localhost:5432/shadowprompt_test
+        run: alembic upgrade head
+
+      - name: Migrations match the models
+        env:
+          DATABASE_URL: postgresql+asyncpg://shadowprompt:shadowprompt@localhost:5432/shadowprompt_test
+        run: alembic check
+
+  frontend:
+    name: Frontend (typecheck, tests, build)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm run test
+
+      - name: Build
+        run: npx vite build

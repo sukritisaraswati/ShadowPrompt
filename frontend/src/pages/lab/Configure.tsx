@@ -1,0 +1,166 @@
+/**
+ * Campaign setup: choose levels, full suite or sample, timeouts and retries.
+ */
+
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
+
+import { toApiError } from "@/api/client";
+import { getPayloadSummary, startCampaign } from "@/api/lab";
+import type { ApiError, PayloadLibrarySummary } from "@/api/types";
+import ErrorAlert from "@/components/ErrorAlert";
+import { describeConnection, useSession } from "@/context/SessionContext";
+
+const NUMBER =
+  "mt-1 w-28 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-shadow-900";
+
+export default function Configure() {
+  const navigate = useNavigate();
+  const { connection, isVerified, sessionId } = useSession();
+  const [library, setLibrary] = useState<PayloadLibrarySummary | null>(null);
+  const [levels, setLevels] = useState<number[]>([1]);
+  const [mode, setMode] = useState<"full" | "sample">("full");
+  const [sampleSize, setSampleSize] = useState(5);
+  const [timeoutSeconds, setTimeoutSeconds] = useState(30);
+  const [maxRetries, setMaxRetries] = useState(1);
+  const [error, setError] = useState<ApiError | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getPayloadSummary(controller.signal)
+      .then(setLibrary)
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted) setError(toApiError(cause));
+      });
+    return () => controller.abort();
+  }, []);
+
+  const testCount = useMemo(() => {
+    if (!library) return 0;
+    return library.levels
+      .filter((l) => levels.includes(l.level))
+      .reduce((sum, l) => sum + (mode === "sample" ? Math.min(sampleSize, l.test_count) : l.test_count), 0);
+  }, [library, levels, mode, sampleSize]);
+
+  if (!isVerified || !connection || !sessionId) {
+    return (
+      <section className="max-w-2xl">
+        <h1 className="text-2xl font-bold tracking-tight">Campaign Setup</h1>
+        <p className="mt-3 text-slate-600 dark:text-slate-300">
+          Connect a model first. The connection is held in this tab only, so it is needed
+          again after a reload.
+        </p>
+        <Link to="/lab/connect" className="mt-4 inline-block rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-white hover:bg-accent-600">
+          Connect a model
+        </Link>
+      </section>
+    );
+  }
+
+  function toggle(level: number) {
+    setLevels((current) =>
+      current.includes(level) ? current.filter((l) => l !== level) : [...current, level].sort(),
+    );
+  }
+
+  async function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!connection || !sessionId || levels.length === 0) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const started = await startCampaign(sessionId, connection, {
+        levels,
+        sampleSize: mode === "sample" ? sampleSize : null,
+        timeoutSeconds,
+        maxRetries,
+      });
+      navigate(`/lab/running?campaign=${started.campaign_id}`);
+    } catch (cause) {
+      setError(toApiError(cause));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="max-w-3xl">
+      <h1 className="text-2xl font-bold tracking-tight">Campaign Setup</h1>
+      <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+        Testing <span className="font-medium">{describeConnection(connection)}</span>.{" "}
+        <Link to="/lab/connect" className="text-accent-500 hover:underline">
+          Change
+        </Link>
+      </p>
+
+      <form onSubmit={onSubmit} className="mt-6 space-y-6">
+        <fieldset>
+          <legend className="text-sm font-semibold">Attack levels</legend>
+          {!library && !error && <p role="status" className="mt-2 text-sm text-slate-500">Loading the test library&hellip;</p>}
+          <ul className="mt-2 space-y-2">
+            {library?.levels.map((l) => (
+              <li key={l.level}>
+                <label
+                  className={`flex items-center gap-3 rounded-md border px-3 py-2 text-sm ${
+                    l.available ? "border-slate-200 dark:border-slate-800" : "border-dashed border-slate-300 opacity-60 dark:border-slate-700"
+                  }`}
+                >
+                  <input type="checkbox" checked={levels.includes(l.level)} disabled={!l.available || busy} onChange={() => toggle(l.level)} />
+                  <span className="w-5 font-bold text-accent-500">{l.level}</span>
+                  <span className="flex-1 font-medium">{l.name}</span>
+                  <span className="text-xs text-slate-500">
+                    {l.available ? `${l.test_count} tests · ${l.danger} danger` : "Arrives in Release 3"}
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </fieldset>
+
+        <fieldset>
+          <legend className="text-sm font-semibold">Coverage</legend>
+          <div className="mt-2 flex flex-wrap items-end gap-6 text-sm">
+            <label className="flex items-center gap-2">
+              <input type="radio" name="mode" checked={mode === "full"} onChange={() => setMode("full")} disabled={busy} />
+              Every test in each level
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="radio" name="mode" checked={mode === "sample"} onChange={() => setMode("sample")} disabled={busy} />
+              A sample of
+            </label>
+            <label className="text-xs text-slate-500">
+              Tests per level
+              <input type="number" min={1} max={40} value={sampleSize} onChange={(e) => setSampleSize(Math.max(1, Math.min(40, Number(e.target.value) || 1)))} disabled={busy || mode !== "sample"} className={`${NUMBER} block`} />
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset className="flex flex-wrap gap-6">
+          <legend className="sr-only">Limits</legend>
+          <label className="text-sm font-semibold">
+            Timeout per test (seconds)
+            <input type="number" min={5} max={120} value={timeoutSeconds} onChange={(e) => setTimeoutSeconds(Math.max(5, Math.min(120, Number(e.target.value) || 30)))} disabled={busy} className={`${NUMBER} block font-normal`} />
+          </label>
+          <label className="text-sm font-semibold">
+            Retries on rate limits or errors
+            <input type="number" min={0} max={3} value={maxRetries} onChange={(e) => setMaxRetries(Math.max(0, Math.min(3, Number(e.target.value) || 0)))} disabled={busy} className={`${NUMBER} block font-normal`} />
+          </label>
+        </fieldset>
+
+        <div className="rounded-md border border-slate-200 p-4 text-sm dark:border-slate-800">
+          <p>
+            This campaign will send <span className="font-semibold">{testCount}</span> requests to your model, one at a time.
+            Each test asks it to break a harmless rule, such as revealing a made-up access code, so no harmful content is
+            requested. Requests count toward your provider's usage and billing.
+          </p>
+        </div>
+
+        {error && <ErrorAlert error={error} title="The campaign could not be started." />}
+
+        <button type="submit" disabled={busy || levels.length === 0 || !library} className="rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-white hover:bg-accent-600 disabled:opacity-60">
+          {busy ? "Starting…" : `Start campaign (${testCount} tests)`}
+        </button>
+      </form>
+    </section>
+  );
+}

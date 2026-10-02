@@ -1,0 +1,14 @@
+# Normalize to LF in the repository; check out native on Windows.
+* text=auto
+
+# Shell scripts and container files must keep LF even on Windows.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Binary assets.
+*.pdf binary
+*.png binary
+*.jpg binary
+*.ico binary

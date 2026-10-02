@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="{{ csp }}">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>ShadowPrompt Lab report</title>
+<style>
+  :root { --navy:#0f1b2d; --accent:#1f5f96; --muted:#5b6b7f; --line:#d5dde6; --zebra:#f5f8fb; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Calibri, Arial, sans-serif; color:#1e2a38; margin:0; background:#fff; line-height:1.5; }
+  main { max-width: 960px; margin: 0 auto; padding: 32px 24px 48px; }
+  h1 { color: var(--navy); margin: 0 0 4px; font-size: 28px; }
+  h2 { color: var(--accent); border-bottom: 2px solid var(--accent); padding-bottom: 4px; margin-top: 36px; font-size: 20px; }
+  h3 { margin: 0; font-size: 15px; }
+  .muted { color: var(--muted); }
+  .cover { border: 1px solid var(--line); border-radius: 8px; padding: 20px; display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; }
+  .score { text-align: center; min-width: 140px; }
+  .score .num { font-size: 48px; font-weight: 700; line-height: 1; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; color: #fff; font-weight: 600; font-size: 12px; }
+  .r-secure, .v-PASS { background:#15803d; } .r-moderate, .v-PARTIAL { background:#a16207; }
+  .r-vulnerable { background:#c2410c; } .r-critical, .v-FAIL { background:#b91c1c; } .v-UNCLEAR { background:#475569; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #dce8f4; color: var(--navy); }
+  tr:nth-child(even) td { background: var(--zebra); }
+  pre { white-space: pre-wrap; word-break: break-word; margin: 4px 0 0; font-family: Consolas, monospace; font-size: 12px; background:#f1f4f8; border:1px solid var(--line); border-radius:4px; padding:6px; }
+  .test { border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; margin-bottom: 12px; page-break-inside: avoid; }
+  .label { font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted); margin-top: 8px; }
+  .notice { border-left: 4px solid #c68a00; background: #fff6e0; padding: 10px 14px; border-radius: 4px; }
+  footer { margin-top: 40px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>ShadowPrompt Lab Report</h1>
+  <p class="muted">LLM security campaign &middot; generated {{ generated_at }}</p>
+
+  <section class="cover">
+    <div>
+      <div class="muted">Model</div>
+      <div><strong>{{ campaign.session.model_name }}</strong> via {{ provider_label }}{% if campaign.session.endpoint_host %} ({{ campaign.session.endpoint_host }}){% endif %}</div>
+      <div class="muted" style="margin-top:8px">Levels tested: {{ campaign.levels_run | join(", ") }} &middot; {{ campaign.results | length }} of {{ campaign.total_tests }} tests run &middot; status {{ campaign.status.value }}</div>
+      <div class="muted">Started {{ started_at }} &middot; Campaign ID {{ campaign.id }}</div>
+    </div>
+    <div class="score">
+      {% if campaign.overall_score is not none %}
+      <div class="num">{{ "%g" | format(campaign.overall_score) }}</div>
+      <div class="muted">security score / 100</div>
+      <div style="margin-top:6px"><span class="badge r-{{ campaign.rating.level.value }}">{{ campaign.rating.label }}</span></div>
+      {% else %}
+      <div class="num">&ndash;</div><div class="muted">not scored</div>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if campaign.error_message %}
+  <p class="notice"><strong>The campaign ended early.</strong> {{ campaign.error_message }}</p>
+  {% endif %}
+
+  <h2>Executive summary</h2>
+  <p>{{ summary }}</p>
+
+  <h2>Score breakdown</h2>
+  <table>
+    <thead><tr><th>Level</th><th>Name</th><th>Tests</th><th>Pass</th><th>Partial</th><th>Fail</th><th>Unclear</th><th>Score</th></tr></thead>
+    <tbody>
+    {% for ls in campaign.level_scores %}
+      <tr><td>{{ ls.level }}</td><td>{{ ls.name }}</td><td>{{ ls.total }}</td><td>{{ ls.passed }}</td><td>{{ ls.partial }}</td><td>{{ ls.failed }}</td><td>{{ ls.unclear }}</td><td>{% if ls.score is not none %}{{ "%g" | format(ls.score) }}{% else %}&ndash;{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Detailed findings</h2>
+  {% if failures %}
+    {% for r in failures %}
+    <div class="test">
+      <h3><span class="badge v-{{ r.verdict.value }}">{{ r.verdict.value }}</span> &nbsp;Level {{ r.level }} &middot; {{ r.name }} <span class="muted">({{ r.technique }})</span></h3>
+      <div class="label">Attack</div>
+      <pre>{{ r.attack_text }}</pre>
+      <div class="label">Model response (summary)</div>
+      <pre>{{ r.response_summary or "" }}</pre>
+      <div class="label">Why</div>
+      <div>{% for reason in (r.evaluation_detail or {}).get("layer1", {}).get("reasons", []) + (r.evaluation_detail or {}).get("layer2", {}).get("reasons", []) %}{{ reason }}{% if not loop.last %}; {% endif %}{% endfor %}</div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p>No test produced full or partial compliance.</p>
+  {% endif %}
+
+  {% if unclear %}
+  <h2>Needs human review</h2>
+  <p class="muted">These results were ambiguous or the model did not respond. They are excluded from the score.</p>
+  <table>
+    <thead><tr><th>Test</th><th>Level</th><th>Response (summary)</th></tr></thead>
+    <tbody>
+    {% for r in unclear %}
+      <tr><td>{{ r.name }}</td><td>{{ r.level }}</td><td>{{ r.response_summary or ((r.evaluation_detail or {}).get("error", {}).get("message", "No response")) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% if recommendations %}
+  <h2>Recommendations</h2>
+  <ul>{% for item in recommendations %}<li>{{ item }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  <h2>Methodology</h2>
+  <ul>{% for item in methodology %}<li>{{ item }}</li>{% endfor %}</ul>
+
+  <p class="notice"><strong>Disclaimer.</strong> For defensive testing only. Results reflect this test suite, not every possible attack, and a high score does not certify the model as safe.</p>
+
+  <footer>ShadowPrompt v{{ version }} &middot; Lab campaign report. No API key is stored or shown in this report.</footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,88 @@
+[project]
+name = "shadowprompt-backend"
+version = "0.4.0"
+description = "ShadowPrompt - defensive LLM security testing lab (Lab + ShadowScan)"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "alembic>=1.14",
+    "aiosqlite>=0.20",
+    "httpx>=0.27",
+    "beautifulsoup4>=4.12",
+    "lxml>=5.3",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.17",
+]
+
+[project.optional-dependencies]
+# PostgreSQL driver. Separate extra because local dev can run on the SQLite
+# fallback, and asyncpg needs a build toolchain on some platforms.
+postgres = ["asyncpg>=0.30"]
+# Release 3: PDF report export. WeasyPrint needs native GTK/Pango libraries,
+# so it is deliberately not a default dependency.
+pdf = ["weasyprint>=63.0", "xhtml2pdf>=0.2.16"]
+# Release 3: Layer 3 meta-evaluator (secondary Claude call).
+layer3 = ["anthropic>=1.0"]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+# The async engine is a session-scoped singleton bound to one event loop,
+# so fixtures and tests must share that loop rather than getting a fresh
+# one per test.
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+# Tests are written as functions. Disabling class collection stops pytest
+# trying to collect the TestResult ORM model as a test suite.
+python_classes = []
+filterwarnings = [
+    "error",
+    # Starlette prefers httpx2 for its TestClient, but the application
+    # itself targets httpx for the LLM proxy and HTML fetcher, so the
+    # test client keeps the same library.
+    "ignore:Using `httpx` with `starlette.testclient`:UserWarning",
+    "ignore::DeprecationWarning:starlette.*",
+]
+markers = [
+    "security: tests that assert a security control holds",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+# S101: assert is the normal idiom in pytest.
+ignore = ["S101"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI declares dependencies and parameters as call defaults by design.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.File", "fastapi.Body"]
+
+[tool.ruff.lint.per-file-ignores]
+# Security rules exist to police application code, not fixtures that
+# deliberately contain credential-shaped strings.
+"tests/**" = ["S"]
+# Alembic writes these files; their formatting is not ours to police.
+"alembic/versions/**" = ["E501"]
+# Prompt text for the judge model: reflowing it would change what the model reads.
+"app/services/lab/judge.py" = ["E501"]
