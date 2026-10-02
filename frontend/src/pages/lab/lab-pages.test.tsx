@@ -249,6 +249,7 @@ describe("Configure", () => {
       maxRetries: 1,
       languages: [],
       customPackIds: [],
+      indirectDelivery: "inline",
     });
   });
 

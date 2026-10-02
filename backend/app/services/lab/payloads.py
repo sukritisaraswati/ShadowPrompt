@@ -311,6 +311,10 @@ class Payload:
     page_html: str | None = field(default=None, repr=False)
     # Set for tests from an uploaded custom pack.
     pack_name: str | None = None
+    # Set when the page is hosted for a chatbot to fetch: the user turn then
+    # carries this link instead of the page itself.
+    page_link: str | None = None
+    hosted_key: str | None = field(default=None, repr=False)
 
     @property
     def id(self) -> str:
@@ -340,6 +344,8 @@ class Payload:
     def _render(self, text: str) -> str:
         if self.page_html is None or PAGE_PLACEHOLDER not in text:
             return text
+        if self.page_link:
+            return text.replace(PAGE_PLACEHOLDER, self.page_link)
         url = self.spec.page_url or "https://example.com/"
         block = f'Fetched page content from {url}:\n<page url="{url}">\n{self.page_html}</page>'
         return text.replace(PAGE_PLACEHOLDER, block)

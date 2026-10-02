@@ -208,6 +208,30 @@ class TestResult(Base):
     __table_args__ = (Index("ix_test_results_campaign_level", "campaign_id", "level"),)
 
 
+class HostedPage(Base):
+    """An indirect test's attack page, served at a link for a chatbot to fetch."""
+
+    __tablename__ = "hosted_pages"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # Unguessable; the page is reachable only through its link.
+    link_key: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    campaign_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("campaigns.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    payload_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    html: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    fetch_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    first_fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_user_agent: Mapped[str | None] = mapped_column(String(200))
+
+
 class PayloadPack(Base):
     """A custom test pack uploaded by a user, validated before it is stored."""
 

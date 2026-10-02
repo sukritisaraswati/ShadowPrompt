@@ -73,6 +73,9 @@ services:
       # no-new-privileges, so inside this container the container is the
       # sandbox: unprivileged user, no capabilities, read-only filesystem.
       SCANNER_RENDER_ENABLED: ${SCANNER_RENDER_ENABLED:-false}
+      # The address chatbots can reach this install at, for hosted attack
+      # pages, e.g. https://shadowprompt.example.com. Empty turns them off.
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
       SCANNER_RENDER_CHROMIUM_SANDBOX: "false"
     depends_on:
       db:

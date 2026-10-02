@@ -119,6 +119,8 @@ export interface CampaignOptions {
   languages?: string[];
   /** Uploaded custom packs whose tests join their levels. */
   customPackIds?: string[];
+  /** For chatbots: paste attack pages into the message, or host them and send a link. */
+  indirectDelivery?: "inline" | "hosted";
 }
 
 export function startCampaign(
@@ -135,6 +137,7 @@ export function startCampaign(
     max_retries: options.maxRetries,
     languages: options.languages ?? [],
     custom_pack_ids: options.customPackIds ?? [],
+    indirect_delivery: options.indirectDelivery ?? "inline",
   });
 }
 

@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { toApiError } from "@/api/client";
-import { getPayloadSummary, listPacks, startCampaign } from "@/api/lab";
+import { getCapabilities, getPayloadSummary, listPacks, startCampaign } from "@/api/lab";
 import { ATTACK_TRACKS, compareLevelCodes, type ApiError, type PayloadLibrarySummary, type PayloadPackSummary, type Track } from "@/api/types";
 import ErrorAlert from "@/components/ErrorAlert";
 import { describeConnection, useSession } from "@/context/SessionContext";
@@ -23,6 +23,8 @@ export default function Configure() {
   const [languages, setLanguages] = useState<string[]>([]);
   const [packs, setPacks] = useState<PayloadPackSummary[]>([]);
   const [packIds, setPackIds] = useState<string[]>([]);
+  const [delivery, setDelivery] = useState<"inline" | "hosted">("inline");
+  const [hostedAvailable, setHostedAvailable] = useState(false);
   const [mode, setMode] = useState<"full" | "sample">("full");
   const [sampleSize, setSampleSize] = useState(5);
   const [timeoutSeconds, setTimeoutSeconds] = useState(30);
@@ -44,6 +46,9 @@ export default function Configure() {
     // Custom packs are optional: if they cannot be listed, the section stays hidden.
     listPacks(controller.signal)
       .then(setPacks)
+      .catch(() => undefined);
+    getCapabilities(controller.signal)
+      .then((c) => setHostedAvailable(Boolean(c.hosted_pages_available)))
       .catch(() => undefined);
     return () => controller.abort();
   }, [connected]);
@@ -114,6 +119,7 @@ export default function Configure() {
         maxRetries,
         languages,
         customPackIds: packIds,
+        indirectDelivery: connection.chatbot ? delivery : "inline",
       });
       navigate(`/lab/running?campaign=${started.campaign_id}`);
     } catch (cause) {
@@ -267,6 +273,32 @@ export default function Configure() {
             <input type="number" min={0} max={3} value={maxRetries} onChange={(e) => setMaxRetries(Math.max(0, Math.min(3, Number(e.target.value) || 0)))} disabled={busy} className={`${NUMBER} block font-normal`} />
           </label>
         </fieldset>
+
+        {connection.chatbot && (
+          <fieldset>
+            <legend className="text-sm font-semibold">How indirect tests reach your chatbot</legend>
+            <div className="mt-2 space-y-2 text-sm">
+              <label className="flex items-start gap-2">
+                <input type="radio" name="delivery" checked={delivery === "inline"} onChange={() => setDelivery("inline")} disabled={busy} className="mt-1" />
+                <span>
+                  Paste the page into the message
+                  <span className="block text-xs text-slate-500">Works with any chatbot; simulates a page the bot was given.</span>
+                </span>
+              </label>
+              <label className={`flex items-start gap-2 ${hostedAvailable ? "" : "opacity-60"}`}>
+                <input type="radio" name="delivery" checked={delivery === "hosted"} onChange={() => setDelivery("hosted")} disabled={busy || !hostedAvailable} className="mt-1" />
+                <span>
+                  Host the page and send a link
+                  <span className="block text-xs text-slate-500">
+                    {hostedAvailable
+                      ? "For chatbots that browse: the instruction arrives through your bot's own fetching, and we record whether it fetched each page."
+                      : "Not available: this server needs PUBLIC_BASE_URL set to an address your chatbot can reach."}
+                  </span>
+                </span>
+              </label>
+            </div>
+          </fieldset>
+        )}
 
         {connection.chatbot && (
           <div role="note" className="rounded-md border border-sky-300 bg-sky-50 p-4 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-100">

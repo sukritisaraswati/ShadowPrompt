@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 
 from sqlalchemy import func, select
@@ -232,6 +232,14 @@ def payload_resolver(
     return resolve
 
 
+def _as_sent(result: TestResult, payload: Payload | None) -> Payload | None:
+    """The payload as it was sent: with its hosted link, if the page was hosted."""
+    hosted = (result.evaluation_detail or {}).get("hosted_page") or {}
+    if payload is None or not hosted.get("url"):
+        return payload
+    return replace(payload, page_link=hosted["url"])
+
+
 def campaign_out(campaign: Campaign, library: PayloadLibrary) -> CampaignOut:
     results = sorted(campaign.test_results, key=lambda r: (r.created_at, r.payload_id))
     resolve = payload_resolver(campaign, library)
@@ -258,7 +266,7 @@ def campaign_out(campaign: Campaign, library: PayloadLibrary) -> CampaignOut:
         error_message=campaign.error_message,
         current_level=current_level,
         level_scores=level_scores,
-        results=[result_out(r, resolve(r.payload_id)) for r in results],
+        results=[result_out(r, _as_sent(r, resolve(r.payload_id))) for r in results],
     )
 
 

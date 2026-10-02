@@ -330,6 +330,18 @@ export interface EvaluationDetail {
   layer3?: JudgeOutcome;
   turns?: Array<{ turn: number; verdict: Verdict | null; reasons: string[] }>;
   page_scan?: PageScanSummary;
+  /** Set when the attack page was hosted for the chatbot to fetch. */
+  hosted_page?: {
+    url: string;
+    fetched: boolean;
+    fetch_count: number;
+    first_fetched_at: string | null;
+    user_agent: string | null;
+  };
+  /** "chatbot" when the target was the user's own chatbot. */
+  target?: string;
+  /** True when scripted earlier turns were sent as one message. */
+  history_flattened?: boolean;
   error?: { code: string; message: string };
 }
 
@@ -398,7 +410,7 @@ export interface Campaign extends CampaignSummary {
     timeout_seconds: number;
     max_retries: number;
     languages?: string[];
-    target?: ChatbotTargetInfo;
+    target?: ChatbotTargetInfo & { indirect_delivery?: "inline" | "hosted" };
   } | null;
   error_message: string | null;
   /** Level code being run, e.g. "D2". */
@@ -450,6 +462,8 @@ export interface LabCapabilities {
   /** True only on self-hosted deployments with LLM_ALLOW_PRIVATE_ENDPOINTS set. */
   local_endpoints_allowed: boolean;
   judge_enabled: boolean;
+  /** True when the server has a public address for hosted attack pages. */
+  hosted_pages_available?: boolean;
 }
 
 /** An opt-in pack of tests written in one language other than English. */

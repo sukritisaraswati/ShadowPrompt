@@ -88,6 +88,13 @@ class Settings(BaseSettings):
     llm_allow_private_endpoints: bool = False
     max_concurrent_campaigns: int = 3
 
+    # --- Hosted attack pages (Lab, Phase 5) ---
+    # The address chatbots can reach this server at, e.g. https://shadowprompt.example.com.
+    # Set it to deliver indirect tests as links for the chatbot to fetch.
+    public_base_url: str | None = None
+    hosted_page_ttl_hours: int = 24
+    rate_limit_hosted_fetches_per_minute: int = 120
+
     # --- Custom payload packs (Lab, Phase 4) ---
     custom_packs_enabled: bool = True
     # Cap on stored packs, so anonymous uploads cannot fill the database.

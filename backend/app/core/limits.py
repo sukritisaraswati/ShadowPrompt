@@ -157,6 +157,17 @@ def connect_rate_limit(request: Request) -> None:
     _enforce(request, "connect", 20, 60.0, "connection tests")
 
 
+def hosted_page_rate_limit(request: Request) -> None:
+    """Fetches of hosted attack pages per client per minute."""
+    _enforce(
+        request,
+        "hosted_page",
+        get_settings().rate_limit_hosted_fetches_per_minute,
+        60.0,
+        "page requests",
+    )
+
+
 def pack_upload_rate_limit(request: Request) -> None:
     """Custom pack uploads per client per hour."""
     _enforce(

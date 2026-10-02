@@ -11,7 +11,7 @@ import asyncio
 import json
 import uuid
 from collections.abc import AsyncIterator
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile, status
@@ -38,7 +38,7 @@ from app.schemas.lab import (
     PayloadPackOut,
     PayloadPackSummary,
 )
-from app.services.lab import campaign_service
+from app.services.lab import campaign_service, hosted_pages
 from app.services.lab.chatbot import adapt_payload
 from app.services.lab.custom_packs import MAX_PACK_BYTES, example_pack, parse_pack
 from app.services.lab.custom_packs import json_schema as pack_json_schema
@@ -230,6 +230,7 @@ async def lab_capabilities() -> LabCapabilities:
     return LabCapabilities(
         local_endpoints_allowed=settings.llm_allow_private_endpoints,
         judge_enabled=settings.layer3_enabled and settings.anthropic_api_key is not None,
+        hosted_pages_available=bool(settings.public_base_url),
     )
 
 
@@ -321,6 +322,20 @@ async def start_campaign(
         languages=body.languages,
         extra=custom,
     )
+    if body.indirect_delivery == "hosted":
+        if body.connection.chatbot is None:
+            raise AppError(
+                ErrorCode.VALIDATION_ERROR,
+                "Hosted attack pages are for chatbots that can browse; a model API cannot.",
+                status_code=422,
+            )
+        if not settings.public_base_url:
+            raise AppError(
+                ErrorCode.VALIDATION_ERROR,
+                "Hosted attack pages are not available on this server.",
+                status_code=422,
+                detail="Set PUBLIC_BASE_URL to an address your chatbot can reach.",
+            )
     target: dict | None = None
     if body.connection.chatbot is not None:
         payloads, skipped = _adapt_for_chatbot(payloads, body.connection.chatbot)
@@ -329,6 +344,7 @@ async def start_campaign(
             "mode": body.connection.chatbot.mode.value,
             "canary_planted": body.connection.chatbot.canary is not None,
             "skipped": skipped,
+            "indirect_delivery": body.indirect_delivery,
         }
         if not payloads:
             raise AppError(
@@ -355,6 +371,15 @@ async def start_campaign(
         },
     )
     db.add(campaign)
+    if body.indirect_delivery == "hosted" and settings.public_base_url:
+        await db.flush()
+        payloads = await hosted_pages.create_pages(
+            db,
+            campaign_id,
+            payloads,
+            settings.public_base_url,
+            timedelta(hours=settings.hosted_page_ttl_hours),
+        )
     # Commit before the run starts, so the background task sees the row.
     await db.commit()
 

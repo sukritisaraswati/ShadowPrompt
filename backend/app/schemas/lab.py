@@ -125,6 +125,9 @@ class CampaignCreate(BaseModel):
     languages: list[str] = Field(default_factory=list, max_length=len(EXTRA_LANGUAGES))
     # Uploaded custom packs whose tests join the selected levels.
     custom_pack_ids: list[uuid.UUID] = Field(default_factory=list, max_length=5)
+    # How indirect tests reach a chatbot: the page pasted into the message, or
+    # a link to a page this server hosts (needs PUBLIC_BASE_URL).
+    indirect_delivery: Literal["inline", "hosted"] = "inline"
 
     @field_validator("languages")
     @classmethod
@@ -245,6 +248,8 @@ class LabCapabilities(BaseModel):
     local_endpoints_allowed: bool
     # True when the Layer 3 judge is configured and switched on.
     judge_enabled: bool
+    # True when PUBLIC_BASE_URL is set, so indirect tests can be hosted pages.
+    hosted_pages_available: bool = False
 
 
 class LevelSummary(BaseModel):
