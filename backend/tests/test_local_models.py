@@ -55,7 +55,11 @@ class Recorder:
 
 def test_capabilities_report_local_endpoints_off_by_default(client) -> None:
     body = client.get("/api/v1/lab/capabilities").json()
-    assert body == {"local_endpoints_allowed": False, "judge_enabled": False}
+    assert body == {
+        "local_endpoints_allowed": False,
+        "judge_enabled": False,
+        "hosted_pages_available": False,
+    }
 
 
 @pytest.mark.security
