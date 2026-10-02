@@ -47,6 +47,9 @@ services:
     <<: *hardening
     build:
       context: ./backend
+      args:
+        # true bundles Playwright and Chromium for JavaScript-rendered scans.
+        INSTALL_RENDER: ${INSTALL_RENDER:-false}
     environment:
       DATABASE_URL: postgresql+asyncpg://shadowprompt:${POSTGRES_PASSWORD}@db:5432/shadowprompt
       SHADOWPROMPT_ENV: ${SHADOWPROMPT_ENV:-production}
@@ -65,6 +68,12 @@ services:
       RATE_LIMIT_SCANS_PER_MINUTE: ${RATE_LIMIT_SCANS_PER_MINUTE:-10}
       RATE_LIMIT_CAMPAIGNS_PER_HOUR: ${RATE_LIMIT_CAMPAIGNS_PER_HOUR:-5}
       XDG_CACHE_HOME: /tmp/.cache
+      # JavaScript rendering for ShadowScan; needs an image built with
+      # INSTALL_RENDER=true. Chromium's own sandbox cannot start under
+      # no-new-privileges, so inside this container the container is the
+      # sandbox: unprivileged user, no capabilities, read-only filesystem.
+      SCANNER_RENDER_ENABLED: ${SCANNER_RENDER_ENABLED:-false}
+      SCANNER_RENDER_CHROMIUM_SANDBOX: "false"
     depends_on:
       db:
         condition: service_healthy
@@ -77,7 +86,8 @@ services:
              --proxy-headers --forwarded-allow-ips='*'"
     read_only: true
     tmpfs:
-      - /tmp:size=64m
+      # Room for a Chromium profile when rendering is on.
+      - /tmp:size=256m
     cap_drop:
       - ALL
     volumes:

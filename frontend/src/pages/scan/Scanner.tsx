@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { toApiError } from "@/api/client";
-import { scanFile, scanUrl, validateScanFile, validateScanUrl } from "@/api/scan";
+import { getScanCapabilities, scanFile, scanUrl, validateScanFile, validateScanUrl } from "@/api/scan";
 import type { ApiError } from "@/api/types";
 import ErrorAlert from "@/components/ErrorAlert";
 
@@ -46,10 +46,20 @@ export default function Scanner() {
   const [validation, setValidation] = useState<string | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
+  const [canRender, setCanRender] = useState(false);
+  const [render, setRender] = useState(false);
   const controller = useRef<AbortController | null>(null);
 
   // Abandon an in-flight scan if the user navigates away.
   useEffect(() => () => controller.current?.abort(), []);
+
+  useEffect(() => {
+    const capabilities = new AbortController();
+    getScanCapabilities(capabilities.signal)
+      .then((c) => setCanRender(c.render_available))
+      .catch(() => undefined);
+    return () => capabilities.abort();
+  }, []);
 
   function switchMode(next: Mode) {
     setMode(next);
@@ -71,8 +81,8 @@ export default function Scanner() {
     try {
       const result =
         mode === "url"
-          ? await scanUrl(url.trim(), controller.current.signal)
-          : await scanFile(file as File, controller.current.signal);
+          ? await scanUrl(url.trim(), controller.current.signal, { render: canRender && render })
+          : await scanFile(file as File, controller.current.signal, { render: canRender && render });
       navigate(`/scan/results/${result.id}`);
     } catch (cause) {
       if (!controller.current?.signal.aborted) setError(toApiError(cause));
@@ -92,7 +102,7 @@ export default function Scanner() {
       <h1 className="text-2xl font-bold tracking-tight">ShadowScan</h1>
       <p className="mt-2 text-slate-600 dark:text-slate-300">
         Find content in a webpage that could manipulate an AI model reading it. The page is
-        parsed as static text and never executed.
+        parsed as static text. Its JavaScript runs only if you ask, in a sandboxed browser.
       </p>
 
       <div role="tablist" aria-label="Scan source" className="mt-6 flex gap-2">
@@ -147,6 +157,19 @@ export default function Scanner() {
               .html or .htm, up to 2 MB.
             </p>
           </div>
+        )}
+
+        {canRender && (
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" checked={render} onChange={(e) => setRender(e.target.checked)} disabled={busy} className="mt-1" />
+            <span>
+              Also run the page's JavaScript (slower)
+              <span className="block text-xs text-slate-500">
+                Catches instructions that scripts add after the page loads. The browser has no direct network access;
+                the scripts it needs are fetched through the same guarded fetcher.
+              </span>
+            </span>
+          </label>
         )}
 
         {validation && (

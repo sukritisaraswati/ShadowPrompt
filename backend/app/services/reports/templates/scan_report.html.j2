@@ -62,7 +62,7 @@
         <td>{{ loop.index }}</td>
         <td>{{ f.source_label }}</td>
         <td>{{ f.category_label }}</td>
-        <td>{% if f.obfuscation_label %}<span class="muted">Decoded from {{ f.obfuscation_label }}:</span>{% endif %}<pre class="evidence">{{ f.evidence_text }}</pre></td>
+        <td>{% if f.obfuscation_note %}<span class="muted">{{ f.obfuscation_note }}:</span>{% endif %}<pre class="evidence">{{ f.evidence_text }}</pre></td>
         <td>{{ f.impact }}</td>
         <td>{{ f.remediation }}</td>
       </tr>
@@ -93,6 +93,10 @@
   {% if result.extraction_summary %}
   <h2>Coverage</h2>
   <p class="muted">Text segments extracted per source location{% if result.extraction_summary.truncated %}. Limits were reached, so part of this page was not analysed{% endif %}.</p>
+  {% set rendered = result.extraction_summary.get("rendered") %}
+  {% if rendered %}
+  <p>{% if rendered.error %}The page's JavaScript could not be run: {{ rendered.error }} Only the static HTML was scanned.{% else %}The page's JavaScript was run in a sandboxed browser with no direct network access. {{ rendered.requests }} {{ "subresource was" if rendered.requests == 1 else "subresources were" }} loaded through the guarded fetcher and {{ rendered.blocked }} {{ "request was" if rendered.blocked == 1 else "requests were" }} refused{% if rendered.truncated %}, some because the request budget ran out{% endif %}. {{ rendered.added_findings }} {{ "finding was" if rendered.added_findings == 1 else "findings were" }} added by scripts.{% endif %}</p>
+  {% endif %}
   <table>
     <thead><tr><th>Source location</th><th>Segments</th></tr></thead>
     <tbody>

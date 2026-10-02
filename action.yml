@@ -28,6 +28,10 @@ inputs:
     description: "scan: save an HTML report per page in this directory"
     required: false
     default: ""
+  render:
+    description: "scan: also run each page's JavaScript in the server's sandboxed browser (true/false)"
+    required: false
+    default: "false"
 
   # campaign
   provider:
@@ -119,6 +123,7 @@ runs:
         SP_TARGETS: ${{ inputs.targets }}
         SP_FAIL_ON: ${{ inputs.fail-on }}
         SP_REPORT_DIR: ${{ inputs.report-dir }}
+        SP_RENDER: ${{ inputs.render }}
         SP_PROVIDER: ${{ inputs.provider }}
         SP_BASE_URL: ${{ inputs.base-url }}
         SP_MODEL: ${{ inputs.model }}
@@ -142,6 +147,7 @@ runs:
             fi
             args=(scan "${targets[@]}" --fail-on "$SP_FAIL_ON")
             if [ -n "$SP_REPORT_DIR" ]; then args+=(--report-dir "$SP_REPORT_DIR"); fi
+            if [ "$SP_RENDER" = "true" ]; then args+=(--render); fi
             ;;
           campaign)
             if [ -z "$SP_BASE_URL" ] || [ -z "$SP_MODEL" ]; then

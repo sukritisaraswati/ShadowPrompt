@@ -5,7 +5,8 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
+from bs4 import UnicodeDammit
+from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
@@ -17,6 +18,7 @@ from app.db.session import get_db
 from app.schemas.common import ErrorCode, ErrorResponse
 from app.schemas.scan import (
     DemoPageOut,
+    ScanCapabilities,
     ScanPage,
     ScanReportRequest,
     ScanResultOut,
@@ -28,7 +30,8 @@ from app.services.reports.scan_report import render_scan_report
 from app.services.scanner.demo_pages import DEMO_PAGES, load_demo_content
 from app.services.scanner.fetcher import fetch_page
 from app.services.scanner.intake import sanitize_filename, validate_upload
-from app.services.scanner.pipeline import scan_document
+from app.services.scanner.pipeline import ScanOutcome, scan_document, scan_rendered
+from app.services.scanner.render import Renderer, get_renderer, render_available
 
 router = APIRouter(prefix="/scan", tags=["shadowscan"])
 
@@ -43,6 +46,37 @@ _ERRORS = {
 }
 
 
+def get_page_renderer() -> Renderer:
+    """The JavaScript renderer. Overridden in tests with a fake."""
+    return get_renderer()
+
+
+def _require_render() -> None:
+    if not render_available():
+        raise AppError(
+            ErrorCode.VALIDATION_ERROR,
+            "Running a page's JavaScript is not enabled on this server.",
+            status_code=422,
+            detail="Set SCANNER_RENDER_ENABLED=true and install the render extra and Chromium.",
+        )
+
+
+async def _analyse(
+    document: bytes, *, render: bool, base_url: str | None, renderer: Renderer
+) -> ScanOutcome:
+    # Parsing and regex matching are CPU-bound; keep them off the event loop.
+    if not render:
+        return await run_in_threadpool(scan_document, document)
+    html = UnicodeDammit(document, is_html=True).unicode_markup or ""
+    rendered = await renderer.render(html, base_url)
+    if rendered.html is None:
+        # The static scan still stands; say why the rendered one is missing.
+        outcome = await run_in_threadpool(scan_document, document)
+        outcome.extraction_summary["rendered"] = rendered.summary()
+        return outcome
+    return await run_in_threadpool(scan_rendered, document, rendered.html, rendered.summary())
+
+
 async def _scan_and_store(
     db: AsyncSession,
     document: bytes,
@@ -50,9 +84,12 @@ async def _scan_and_store(
     source_kind: ScanSourceKind,
     target_url: str | None = None,
     target_filename: str | None = None,
+    render: bool = False,
+    renderer: Renderer | None = None,
 ) -> ScanResultOut:
-    # Parsing and regex matching are CPU-bound; keep them off the event loop.
-    outcome = await run_in_threadpool(scan_document, document)
+    outcome = await _analyse(
+        document, render=render, base_url=target_url, renderer=renderer or get_renderer()
+    )
     scan = await scan_service.save_scan(
         db,
         outcome,
@@ -75,11 +112,26 @@ def _not_found(what: str) -> AppError:
     summary="Scan a URL",
     dependencies=[Depends(scan_rate_limit)],
 )
-async def scan_url(body: ScanUrlRequest, db: AsyncSession = Depends(get_db)) -> ScanResultOut:
-    """Fetch a public page through the SSRF-guarded fetcher, then scan it."""
+async def scan_url(
+    body: ScanUrlRequest,
+    db: AsyncSession = Depends(get_db),
+    renderer: Renderer = Depends(get_page_renderer),
+) -> ScanResultOut:
+    """Fetch a public page through the SSRF-guarded fetcher, then scan it.
+
+    With ``render``, the page's JavaScript is also run in a sandboxed browser
+    and whatever it adds to the page is scanned too.
+    """
+    if body.render:
+        _require_render()
     page = await fetch_page(body.url)
     return await _scan_and_store(
-        db, page.content, source_kind=ScanSourceKind.URL, target_url=page.final_url
+        db,
+        page.content,
+        source_kind=ScanSourceKind.URL,
+        target_url=page.final_url,
+        render=body.render,
+        renderer=renderer,
     )
 
 
@@ -93,16 +145,34 @@ async def scan_url(body: ScanUrlRequest, db: AsyncSession = Depends(get_db)) -> 
 )
 async def scan_html_upload(
     file: UploadFile = File(..., description=".html or .htm file, 2 MB maximum"),
+    render: bool = Form(False, description="Also run the page's JavaScript first"),
     db: AsyncSession = Depends(get_db),
+    renderer: Renderer = Depends(get_page_renderer),
 ) -> ScanResultOut:
     settings = get_settings()
+    if render:
+        _require_render()
     filename = sanitize_filename(file.filename)
     # Read one byte past the limit so an oversized file is detected, not truncated.
     data = await file.read(settings.upload_max_bytes + 1)
     validate_upload(filename, file.content_type, data, settings.upload_max_bytes)
     return await _scan_and_store(
-        db, data, source_kind=ScanSourceKind.UPLOAD, target_filename=filename
+        db,
+        data,
+        source_kind=ScanSourceKind.UPLOAD,
+        target_filename=filename,
+        render=render,
+        renderer=renderer,
     )
+
+
+@router.get(
+    "/capabilities",
+    response_model=ScanCapabilities,
+    summary="What this deployment's scanner can do",
+)
+async def scan_capabilities() -> ScanCapabilities:
+    return ScanCapabilities(render_available=render_available())
 
 
 @router.get(

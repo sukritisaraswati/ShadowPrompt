@@ -36,6 +36,7 @@ class ScanOutcome:
                     "source": f.get("source_label"),
                     "rule": f.get("matched_rule"),
                     "decoded_from": f.get("obfuscation_label"),
+                    "note": f.get("obfuscation_note"),
                     "evidence": f.get("evidence_text"),
                 }
                 for f in self.findings
@@ -66,10 +67,10 @@ def expand_targets(targets: list[str]) -> list[str]:
     return list(dict.fromkeys(out))
 
 
-def scan_one(client: Client, target: str) -> ScanOutcome:
+def scan_one(client: Client, target: str, *, render: bool = False) -> ScanOutcome:
     try:
         if is_url(target):
-            result = client.request("POST", "/scan/url", body={"url": target})
+            result = client.request("POST", "/scan/url", body={"url": target, "render": render})
         else:
             path = Path(target)
             if not path.is_file():
@@ -77,7 +78,9 @@ def scan_one(client: Client, target: str) -> ScanOutcome:
             if path.stat().st_size > MAX_FILE_BYTES:
                 return ScanOutcome(target, error="file is larger than the 2 MB upload limit")
             upload = Upload(path.name, path.read_bytes(), "text/html")
-            result = client.request("POST", "/scan/html", upload=("file", upload))
+            result = client.request(
+                "POST", "/scan/html", upload=("file", upload), fields={"render": render}
+            )
     except ApiError as exc:
         if exc.code == "SERVER_UNREACHABLE":
             raise

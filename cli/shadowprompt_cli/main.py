@@ -79,6 +79,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="fail if any page reaches this severity (default %(default)s)",
     )
     scan.add_argument("--report-dir", help="save an HTML report for every page here")
+    scan.add_argument(
+        "--render",
+        action="store_true",
+        help="also run each page's JavaScript in the server's sandboxed browser",
+    )
 
     camp = sub.add_parser(
         "campaign",
@@ -146,7 +151,7 @@ def do_scan(args: argparse.Namespace, client: Client) -> int:
         return EXIT_ERROR
     outcomes = []
     for target in targets:
-        outcome = scan_cmd.scan_one(client, target)
+        outcome = scan_cmd.scan_one(client, target, render=args.render)
         outcomes.append(outcome)
         if args.report_dir and outcome.scan_id:
             scan_cmd.save_report(client, outcome, args.report_dir)
@@ -156,11 +161,8 @@ def do_scan(args: argparse.Namespace, client: Client) -> int:
             else:
                 print(f"{outcome.severity.upper():9} {outcome.score:3}  {target}")
                 for finding in outcome.findings[:3]:
-                    decoded = (
-                        f", decoded from {finding['obfuscation_label']}"
-                        if finding.get("obfuscation_label")
-                        else ""
-                    )
+                    note = finding.get("obfuscation_note")
+                    decoded = f" ({note[0].lower()}{note[1:]})" if note else ""
                     print(
                         f"            {finding['category_label']} in "
                         f"{finding['source_label']}{decoded}"

@@ -31,7 +31,7 @@ history and model comparison round it out.
 | 4.1 Local models | Complete |
 | 4.7 Custom payload upload | Complete |
 | 4.5 CLI and GitHub Action | Complete |
-| 4.4 JavaScript-rendered scanning | Not started |
+| 4.4 JavaScript-rendered scanning | Complete |
 | 4.6 Browser extension | Not started |
 
 | Phase | Scope | Status |
@@ -64,8 +64,10 @@ curl -X POST http://127.0.0.1:8000/api/v1/scan/demo-pages/multi_vector/scan
 
 1. **Intake.** URLs go through the SSRF-guarded fetcher. Uploads are checked for
    size, extension, declared type, and binary content.
-2. **Extraction.** The page is parsed statically with BeautifulSoup and lxml and
-   never executed. Text is pulled from 13 source locations: HTML comments, meta
+2. **Extraction.** The page is parsed statically with BeautifulSoup and lxml.
+   Its JavaScript runs only when a scan asks for it (see
+   [JavaScript-rendered scanning](#javascript-rendered-scanning)). Text is
+   pulled from 13 source locations: HTML comments, meta
    tags, image alt text, ARIA labels, title attributes, data attributes, hidden
    elements (including classes hidden by a stylesheet), visible text, script
    contents, visually concealed elements, link and button text, noscript blocks,
@@ -93,7 +95,8 @@ curl -X POST http://127.0.0.1:8000/api/v1/scan/demo-pages/multi_vector/scan
    `backend/app/services/scanner/data/detection_rules.json` and are validated at
    startup.
 6. **Scoring.** Each match is weighted by its rule and by where it was hidden,
-   and by a further 1.25 if it had to be decoded or reassembled first.
+   and by a further 1.25 if it had to be decoded, reassembled, or was added by
+   JavaScript.
    Repeats in one category have diminishing returns, matches spread over several
    locations earn a bonus, any match scores at least 21, and the total is capped
    at 100. The same page always gets the same score.
@@ -105,6 +108,46 @@ curl -X POST http://127.0.0.1:8000/api/v1/scan/demo-pages/multi_vector/scan
 | 41 to 60 | Medium | Investigate before use with an LLM |
 | 61 to 80 | High | Do not feed to an LLM without review |
 | 81 to 100 | Critical | Block, and treat as an active attack |
+
+### JavaScript-rendered scanning
+
+A page can add its instruction with a script after it loads. An agent reading
+the live page sees it, but the static HTML does not contain it. Scans can
+optionally run the page in headless Chromium and scan the resulting page as
+well. Findings that exist only after rendering are labelled "Added by
+JavaScript after the page loaded".
+
+The browser runs hostile code by assumption, so it is sandboxed:
+
+- **No network of its own.** Chromium is launched with every connection pointed
+  at a dead proxy, so WebSockets, beacons and prefetches go nowhere.
+- **Subresources through the guarded fetcher.** Every request is intercepted.
+  The page is served from the HTML ShadowScan already fetched. Scripts,
+  stylesheets, frames and XHR/fetch GETs are fetched on its behalf by the same
+  SSRF-guarded fetcher used for pages, so private, loopback and metadata
+  addresses stay unreachable. POSTs, images, fonts and media are refused. At
+  most 40 requests and 8 MB per render (`SCANNER_RENDER_MAX_REQUESTS`,
+  `SCANNER_RENDER_MAX_BYTES`).
+- **Locked-down browser.** Chromium's own process sandbox is on, service
+  workers, downloads and permission prompts are off, dialogs are dismissed, and
+  each render has a 20-second deadline with at most two at a time.
+- **Graceful failure.** If rendering fails or times out, the static scan is
+  still returned, with a note saying why the rendered one is missing.
+
+Rendering is off by default because it needs Playwright and Chromium:
+
+```bash
+pip install -e ".[render]" && python -m playwright install chromium-headless-shell
+SCANNER_RENDER_ENABLED=true uvicorn app.main:app
+```
+
+For Docker, build with `INSTALL_RENDER=true` and set
+`SCANNER_RENDER_ENABLED=true`. Chromium's sandbox cannot start under the
+container's `no-new-privileges` setting, so there it is turned off and the
+container is the sandbox: an unprivileged user, no Linux capabilities, and a
+read-only filesystem. The interface offers the option only when
+`GET /api/v1/scan/capabilities` reports it available; the API takes
+`"render": true`, and the CLI takes `--render`.
 
 ---
 
@@ -487,7 +530,7 @@ docs/             the project blueprint
 | Frontend | React 18, React Router v6, Tailwind CSS v4, Axios, TypeScript |
 | Backend | Python 3.11, FastAPI, Pydantic v2, async SQLAlchemy 2.0 |
 | Database | PostgreSQL with asyncpg; SQLite with aiosqlite for local development |
-| Parsing | BeautifulSoup4 with lxml, static only, never executed |
+| Parsing | BeautifulSoup4 with lxml; optional Playwright Chromium for rendered scans |
 | Reports | Jinja2 for HTML, WeasyPrint for PDF |
 | Testing | pytest with pytest-asyncio, Vitest with React Testing Library |
 
@@ -563,7 +606,10 @@ looked up in a fixed allowlist and never used as file paths.
 - Rule-based detection cannot catch every paraphrase. Rules in other languages
   cover the six most common injection ideas, not the full English set, and
   languages outside the ten supported ones are not covered.
-- Static HTML scanning misses content that JavaScript generates after page load.
+- Static scans miss content that JavaScript adds after the page loads.
+  Rendered scans catch it, but not content that appears only after user
+  interaction or a login, or that needs a request the sandbox refuses. Running
+  untrusted JavaScript relies on Chromium's security; keep the image updated.
 - Common encodings are decoded, but encryption, a custom cipher, and letters
   separated only by spaces (`i g n o r e`) are not.
 - Hidden content is recognised from inline styles, the `hidden` attribute, and

@@ -13,19 +13,28 @@ from sqlalchemy.orm import selectinload
 from app.db.models import Finding, ScanResult, ScanSourceKind, Severity
 from app.schemas.common import PaginationMeta
 from app.schemas.scan import FindingOut, ScanPage, ScanResultOut, ScanSummary, SeverityInfo
-from app.services.scanner.deobfuscate import transform_label
+from app.services.scanner.deobfuscate import transform_label, transform_note
 from app.services.scanner.pipeline import ScanOutcome
 from app.services.scanner.rules import Category, get_rules
 from app.services.scanner.scoring import SEVERITY_GUIDANCE, contribution
 from app.services.scanner.sources import SOURCE_INFO, SourceLocation
+
+STATIC_ONLY_LIMITATION = (
+    "Only the static HTML is analysed. Content added by JavaScript after the page loads is not "
+    "seen unless the scan runs the page's JavaScript."
+)
+RENDERED_LIMITATION = (
+    "The page's JavaScript was run in a sandboxed browser and the result scanned too. Content "
+    "that appears only after user interaction, a login, or a request the sandbox refused is not "
+    "seen."
+)
 
 # Always shown with results (blueprint 13.2: "Limitations notice: always shown").
 LIMITATIONS = [
     "Detection is rule-based, in English and ten other languages (Spanish, French, German, "
     "Portuguese, Italian, Russian, Chinese, Japanese, Hindi, Arabic). Paraphrased or novel "
     "injections, and those in other languages, can go unnoticed.",
-    "Only the static HTML is analysed. "
-    "Content added by JavaScript after the page loads is not seen.",
+    STATIC_ONLY_LIMITATION,
     "Common encodings are decoded (Base64, hex, escapes, URL encoding, ROT13, reversed text, "
     "leetspeak, look-alike letters, and text split across elements). Encryption or a custom "
     "cipher is not.",
@@ -163,6 +172,7 @@ def finding_out(finding: Finding) -> FindingOut:
         evidence_text=finding.evidence_text,
         obfuscation=finding.obfuscation,
         obfuscation_label=transform_label(finding.obfuscation) if finding.obfuscation else None,
+        obfuscation_note=transform_note(finding.obfuscation) if finding.obfuscation else None,
         risk_weight=finding.risk_weight,
         impact=finding.impact,
         remediation=finding.remediation,
@@ -188,8 +198,15 @@ def result_out(scan: ScanResult) -> ScanResultOut:
         **summary_out(scan).model_dump(),
         findings=[finding_out(f) for f in findings],
         extraction_summary=scan.extraction_summary,
-        limitations=LIMITATIONS,
+        limitations=limitations_for(scan.extraction_summary),
     )
+
+
+def limitations_for(summary: dict | None) -> list[str]:
+    rendered = bool(summary and summary.get("rendered") and summary["rendered"].get("segments"))
+    if not rendered:
+        return LIMITATIONS
+    return [RENDERED_LIMITATION if item == STATIC_ONLY_LIMITATION else item for item in LIMITATIONS]
 
 
 def page_out(items: list[ScanResult], total: int, limit: int, offset: int) -> ScanPage:

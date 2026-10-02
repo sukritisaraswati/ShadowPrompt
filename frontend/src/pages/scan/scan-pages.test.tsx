@@ -77,6 +77,8 @@ function renderAt(path: string, element: React.ReactElement, pattern: string) {
 
 beforeEach(() => {
   delete (window as unknown as { __pwned?: boolean }).__pwned;
+  // A server without JavaScript rendering, unless a test says otherwise.
+  vi.spyOn(scanApi, "getScanCapabilities").mockResolvedValue({ render_available: false });
 });
 
 // --------------------------------------------------------------------------
@@ -130,7 +132,7 @@ describe("Scanner", () => {
     await userEvent.click(screen.getByRole("button", { name: /start scan/i }));
 
     expect(await screen.findByText(/results page/i)).toBeInTheDocument();
-    expect(scanApi.scanUrl).toHaveBeenCalledWith("https://example.com/page", expect.any(AbortSignal));
+    expect(scanApi.scanUrl).toHaveBeenCalledWith("https://example.com/page", expect.any(AbortSignal), { render: false });
   });
 
   it("explains a blocked internal address", async () => {
@@ -161,7 +163,7 @@ describe("Scanner", () => {
     await userEvent.click(screen.getByRole("button", { name: /start scan/i }));
 
     expect(await screen.findByText(/results page/i)).toBeInTheDocument();
-    expect(scanApi.scanFile).toHaveBeenCalledWith(file, expect.any(AbortSignal));
+    expect(scanApi.scanFile).toHaveBeenCalledWith(file, expect.any(AbortSignal), { render: false });
   });
 
   it("refuses an oversized file before uploading", async () => {
@@ -183,6 +185,66 @@ describe("Scanner", () => {
 // --------------------------------------------------------------------------
 // Results page
 // --------------------------------------------------------------------------
+
+describe("JavaScript rendering", () => {
+  it("is not offered when the server cannot render", async () => {
+    renderAt("/scan", <Scanner />, "/scan");
+    await waitFor(() => expect(scanApi.getScanCapabilities).toHaveBeenCalled());
+    expect(screen.queryByRole("checkbox", { name: /run the page's javascript/i })).toBeNull();
+  });
+
+  it("asks the server to render when chosen", async () => {
+    vi.spyOn(scanApi, "getScanCapabilities").mockResolvedValue({ render_available: true });
+    const scan = vi.spyOn(scanApi, "scanUrl").mockResolvedValue(RESULT);
+    renderAt("/scan", <Scanner />, "/scan");
+
+    await userEvent.click(await screen.findByRole("checkbox", { name: /run the page's javascript/i }));
+    await userEvent.type(screen.getByLabelText(/page url/i), "https://example.com/page");
+    await userEvent.click(screen.getByRole("button", { name: /start scan/i }));
+
+    await screen.findByText(/results page/i);
+    expect(scan).toHaveBeenCalledWith("https://example.com/page", expect.any(AbortSignal), { render: true });
+  });
+
+  it("explains what rendering found, and labels script-added findings", async () => {
+    const rendered: ScanResult = {
+      ...RESULT,
+      extraction_summary: {
+        sources: {},
+        segments: 10,
+        truncated: false,
+        rendered: { requests: 3, blocked: 2, truncated: false, error: null, segments: 12, added_findings: 1 },
+      },
+      findings: [
+        {
+          ...RESULT.findings[1],
+          obfuscation: "rendered",
+          obfuscation_label: "content added by JavaScript",
+          obfuscation_note: "Added by JavaScript after the page loaded",
+        },
+      ],
+    };
+    vi.spyOn(scanApi, "getScan").mockResolvedValue(rendered);
+    renderAt(`/scan/results/${RESULT.id}`, <ScanResults />, "/scan/results/:id");
+
+    expect(await screen.findByText(/3 scripts and files loaded, 2 requests refused/)).toBeInTheDocument();
+    expect(screen.getByText("Added by JavaScript after the page loaded")).toBeInTheDocument();
+  });
+
+  it("says when rendering failed and only static HTML was scanned", async () => {
+    vi.spyOn(scanApi, "getScan").mockResolvedValue({
+      ...RESULT,
+      extraction_summary: {
+        sources: {},
+        segments: 10,
+        truncated: false,
+        rendered: { requests: 0, blocked: 0, truncated: false, error: "Rendering did not finish within 20 seconds." },
+      },
+    });
+    renderAt(`/scan/results/${RESULT.id}`, <ScanResults />, "/scan/results/:id");
+    expect(await screen.findByText(/only the static html was scanned/i)).toBeInTheDocument();
+  });
+});
 
 describe("ScanResults", () => {
   it("renders score, severity, findings and limitations", async () => {

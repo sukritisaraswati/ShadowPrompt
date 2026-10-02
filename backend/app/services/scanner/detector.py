@@ -57,6 +57,8 @@ class Detection:
     # How the matched text was recovered, e.g. "base64" or "split". None when
     # the rule matched the text exactly as it appears on the page.
     transform: str | None = None
+    # The exact text the rule matched, used to tell findings apart.
+    matched: str = ""
 
     @property
     def category(self) -> Category:
@@ -95,7 +97,12 @@ def detect_segment(segment: Segment, rules: RuleSet) -> list[Detection]:
     text = normalize(segment.text)
     found = _best_matches(text, rules, set())
     detections = [
-        Detection(segment=segment, rule=rule, evidence=_evidence(text, start, end))
+        Detection(
+            segment=segment,
+            rule=rule,
+            evidence=_evidence(text, start, end),
+            matched=text[start:end],
+        )
         for rule, start, end in found.values()
     ]
     seen = set(found)
@@ -109,6 +116,7 @@ def detect_segment(segment: Segment, rules: RuleSet) -> list[Detection]:
                     rule=rule,
                     evidence=_evidence(variant.text, start, end),
                     transform=variant.transform,
+                    matched=variant.text[start:end],
                 )
             )
     return detections
@@ -164,6 +172,7 @@ def _split_detections(
                 rule=rule,
                 evidence=_evidence(joined, start, end),
                 transform="split",
+                matched=joined[start:end],
             )
         )
     return out

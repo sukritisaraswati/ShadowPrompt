@@ -53,6 +53,18 @@ class Settings(BaseSettings):
     upload_max_bytes: int = 2 * 1024 * 1024
     scanner_user_agent: str = "ShadowScan/0.2 (+defensive prompt-injection scanner)"
 
+    # --- JavaScript rendering (ShadowScan, Phase 4) ---
+    # Needs the "render" extra and a Chromium install (playwright install chromium).
+    scanner_render_enabled: bool = False
+    scanner_render_timeout_seconds: float = 20.0
+    # Subresources fetched for one render, through the SSRF-guarded fetcher.
+    scanner_render_max_requests: int = 40
+    scanner_render_max_bytes: int = 8 * 1024 * 1024
+    scanner_render_max_concurrent: int = 2
+    # Chromium's process sandbox. Turn off only where the container itself is
+    # the sandbox and forbids Chromium's (the bundled Docker Compose stack).
+    scanner_render_chromium_sandbox: bool = True
+
     # --- Reports ---
     reports_dir: str = "generated_reports"
 

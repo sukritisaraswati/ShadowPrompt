@@ -14,6 +14,13 @@ from app.schemas.common import PaginationMeta
 
 class ScanUrlRequest(BaseModel):
     url: str = Field(min_length=1, max_length=2048, examples=["https://example.com/article"])
+    # Also run the page's JavaScript in the sandboxed browser and scan the result.
+    render: bool = False
+
+
+class ScanCapabilities(BaseModel):
+    # True when this server can run a page's JavaScript before scanning.
+    render_available: bool
 
 
 class FindingOut(BaseModel):
@@ -33,6 +40,8 @@ class FindingOut(BaseModel):
     # e.g. "base64". The evidence is then the decoded text.
     obfuscation: str | None = None
     obfuscation_label: str | None = None
+    # How the finding was recovered, as a sentence, e.g. "Decoded from Base64".
+    obfuscation_note: str | None = None
     risk_weight: int
     impact: str | None
     remediation: str | None

@@ -51,12 +51,28 @@ TRANSFORM_LABELS: dict[str, str] = {
     "separated": "letters split by punctuation",
     "homoglyph": "look-alike characters",
     "split": "fragments split across elements",
+    "rendered": "content added by JavaScript",
 }
 
 
 def transform_label(transform: str) -> str:
     """Human label for a transform chain such as ``base64>rot13``."""
     return ", then ".join(TRANSFORM_LABELS.get(step, step) for step in transform.split(">"))
+
+
+def transform_note(transform: str) -> str:
+    """A sentence saying how a finding was recovered, for people reading results."""
+    steps = transform.split(">")
+    parts: list[str] = []
+    if steps[0] == "rendered":
+        parts.append("Added by JavaScript after the page loaded")
+        steps = steps[1:]
+    if steps == ["split"]:
+        parts.append("reassembled from fragments split across elements")
+    elif steps:
+        parts.append("decoded from " + ", then ".join(TRANSFORM_LABELS.get(s, s) for s in steps))
+    note = ", ".join(parts)
+    return note[:1].upper() + note[1:]
 
 
 @dataclass(frozen=True)

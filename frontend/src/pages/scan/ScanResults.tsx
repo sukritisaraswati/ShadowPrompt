@@ -42,7 +42,7 @@ function FindingCard({ finding, index }: { finding: Finding; index: number }) {
         Evidence
         {finding.obfuscation_label && (
           <span className="rounded bg-amber-100 px-1.5 py-0.5 normal-case tracking-normal text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
-            Decoded from {finding.obfuscation_label}
+            {finding.obfuscation_note ?? `Decoded from ${finding.obfuscation_label}`}
           </span>
         )}
       </h4>
@@ -132,6 +132,20 @@ export default function ScanResults() {
         </div>
         <ReportButtons download={(format) => downloadScanReport(id, format)} />
       </section>
+
+      {result.extraction_summary?.rendered && (
+        <p
+          className={`rounded-md border px-4 py-2 text-sm ${
+            result.extraction_summary.rendered.error
+              ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+              : "border-slate-200 text-slate-600 dark:border-slate-800 dark:text-slate-300"
+          }`}
+        >
+          {result.extraction_summary.rendered.error
+            ? `The page's JavaScript could not be run: ${result.extraction_summary.rendered.error} Only the static HTML was scanned.`
+            : `The page's JavaScript was run in a sandboxed browser: ${result.extraction_summary.rendered.requests} scripts and files loaded, ${result.extraction_summary.rendered.blocked} requests refused. ${result.extraction_summary.rendered.added_findings ?? 0} of the findings were added by scripts.`}
+        </p>
+      )}
 
       {result.extraction_summary?.truncated && (
         <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">

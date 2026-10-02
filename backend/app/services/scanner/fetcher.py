@@ -51,12 +51,17 @@ class FetchedPage:
     redirects: list[str] = field(default_factory=list)
 
 
-def _headers(target: Target, address: str, settings: Settings) -> tuple[str, dict, dict]:
+_HTML_ACCEPT = "text/html,application/xhtml+xml;q=0.9,text/plain;q=0.5"
+
+
+def _headers(
+    target: Target, address: str, settings: Settings, accept: str
+) -> tuple[str, dict, dict]:
     pinned = pin(target, address)
     headers = {
         "Host": pinned.host_header,
         "User-Agent": settings.scanner_user_agent,
-        "Accept": "text/html,application/xhtml+xml;q=0.9,text/plain;q=0.5",
+        "Accept": accept,
     }
     return pinned.url, headers, pinned.extensions
 
@@ -84,7 +89,14 @@ def _too_large(limit: int) -> AppError:
 
 
 async def _fetch(
-    url: str, settings: Settings, resolver: Resolver, transport: httpx.AsyncBaseTransport | None
+    url: str,
+    settings: Settings,
+    resolver: Resolver,
+    transport: httpx.AsyncBaseTransport | None,
+    *,
+    accept: str = _HTML_ACCEPT,
+    allowed_types: frozenset[str] | None = _HTML_TYPES,
+    max_bytes: int | None = None,
 ) -> FetchedPage:
     redirects: list[str] = []
     current = url
@@ -97,7 +109,7 @@ async def _fetch(
         while True:
             target = parse_target(current)
             address = await resolve_public(target, resolver)
-            request_url, headers, extensions = _headers(target, address, settings)
+            request_url, headers, extensions = _headers(target, address, settings, accept)
 
             async with client.stream(
                 "GET", request_url, headers=headers, extensions=extensions
@@ -130,7 +142,7 @@ async def _fetch(
                 content_type = (
                     response.headers.get("content-type", "").split(";")[0].strip().lower()
                 )
-                if content_type not in _HTML_TYPES:
+                if allowed_types is not None and content_type not in allowed_types:
                     raise AppError(
                         ErrorCode.UNSUPPORTED_FILE_TYPE,
                         "That URL does not serve an HTML page.",
@@ -138,7 +150,7 @@ async def _fetch(
                         detail=content_type[:100],
                     )
 
-                content = await _read_capped(response, settings.fetch_max_bytes)
+                content = await _read_capped(response, max_bytes or settings.fetch_max_bytes)
                 return FetchedPage(
                     final_url=current,
                     content=content,
@@ -155,10 +167,38 @@ async def fetch_page(
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> FetchedPage:
     """Fetch a public web page under the full set of SSRF controls."""
+    return await _guarded(url, settings, resolver, transport)
+
+
+async def fetch_resource(
+    url: str,
+    *,
+    max_bytes: int,
+    settings: Settings | None = None,
+    resolver: Resolver = system_resolver,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> FetchedPage:
+    """Fetch a script, stylesheet or data file for the renderer.
+
+    The same SSRF controls as a page fetch, any content type, and a size
+    limit set by the caller's remaining budget.
+    """
+    return await _guarded(
+        url, settings, resolver, transport, accept="*/*", allowed_types=None, max_bytes=max_bytes
+    )
+
+
+async def _guarded(
+    url: str,
+    settings: Settings | None,
+    resolver: Resolver,
+    transport: httpx.AsyncBaseTransport | None,
+    **options: object,
+) -> FetchedPage:
     settings = settings or get_settings()
     try:
         async with asyncio.timeout(settings.fetch_timeout_seconds):
-            return await _fetch(url, settings, resolver, transport)
+            return await _fetch(url, settings, resolver, transport, **options)  # type: ignore[arg-type]
     except AppError:
         raise
     except (TimeoutError, httpx.TimeoutException) as exc:

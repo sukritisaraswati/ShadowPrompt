@@ -153,10 +153,26 @@ def test_scan_urls_use_the_server_side_fetcher(server, capsys) -> None:
     server.route("POST", "/scan/url", lambda r: (201, {}, scan_result(88, "critical", 2)))
     code = cli.main(["--server", server.url, "--json", "scan", "https://example.com/a"])
     assert code == cli.EXIT_THRESHOLD
-    assert server.requests[0].json() == {"url": "https://example.com/a"}
+    assert server.requests[0].json() == {"url": "https://example.com/a", "render": False}
     out = json.loads(capsys.readouterr().out)
     assert out["results"][0]["severity"] == "critical"
     assert out["results"][0]["findings"][0]["decoded_from"] == "Base64"
+
+
+def test_render_is_requested_for_files_and_urls(server, tmp_path) -> None:
+    page = tmp_path / "page.html"
+    page.write_text("<p>x</p>", encoding="utf-8")
+    server.route("POST", "/scan/html", lambda r: (201, {}, scan_result(0, "clean")))
+    server.route("POST", "/scan/url", lambda r: (201, {}, scan_result(0, "clean")))
+
+    args = ["--server", server.url, "scan", "--render", str(page), "https://example.com/"]
+    assert cli.main(args) == cli.EXIT_OK
+
+    upload = next(r for r in server.requests if r.path.endswith("/scan/html"))
+    assert b'name="render"' in upload.body
+    assert b"\r\n\r\ntrue\r\n" in upload.body
+    url = next(r for r in server.requests if r.path.endswith("/scan/url"))
+    assert url.json()["render"] is True
 
 
 def test_a_page_that_cannot_be_scanned_fails_the_build(server, tmp_path, capsys) -> None:

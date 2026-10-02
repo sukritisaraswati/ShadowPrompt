@@ -143,6 +143,8 @@ export interface Finding {
   obfuscation?: string | null;
   /** Human label for the transform, e.g. "Base64, then ROT13". */
   obfuscation_label?: string | null;
+  /** How the finding was recovered, as a sentence, e.g. "Decoded from Base64". */
+  obfuscation_note?: string | null;
   risk_weight: number;
   impact: string | null;
   remediation: string | null;
@@ -159,10 +161,25 @@ export interface ScanSummary {
   created_at: string;
 }
 
+/** Present when the page's JavaScript was run before scanning. */
+export interface RenderSummary {
+  requests: number;
+  blocked: number;
+  truncated: boolean;
+  error: string | null;
+  segments?: number;
+  added_findings?: number;
+}
+
 export interface ExtractionSummary {
   sources: Record<string, number>;
   segments: number;
   truncated: boolean;
+  rendered?: RenderSummary;
+}
+
+export interface ScanCapabilities {
+  render_available: boolean;
 }
 
 export interface ScanResult extends ScanSummary {

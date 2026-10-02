@@ -21,6 +21,17 @@ COPY app ./app
 RUN pip install --upgrade pip && pip install ".[postgres,pdf,layer3]" \
     && apt-get purge -y build-essential && apt-get autoremove -y
 
+# Optional JavaScript rendering for ShadowScan: Playwright and a headless
+# Chromium with its system libraries. Adds a few hundred MB, so it is opt-in:
+#   INSTALL_RENDER=true docker compose build
+ARG INSTALL_RENDER=false
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN if [ "$INSTALL_RENDER" = "true" ]; then \
+        pip install ".[render]" \
+        && python -m playwright install --with-deps chromium-headless-shell \
+        && rm -rf /var/lib/apt/lists/*; \
+    fi
+
 COPY alembic.ini ./
 COPY alembic ./alembic
 

@@ -42,15 +42,23 @@ class Upload:
     content_type: str
 
 
-def _multipart(field_name: str, upload: Upload) -> tuple[bytes, str]:
+def _multipart(
+    field_name: str, upload: Upload, fields: dict[str, object] | None = None
+) -> tuple[bytes, str]:
     boundary = f"shadowprompt-{uuid.uuid4().hex}"
     safe_name = upload.filename.replace('"', "").replace("\r", "").replace("\n", "")
-    head = (
+    body = b""
+    for name, value in (fields or {}).items():
+        text = str(value).lower() if isinstance(value, bool) else str(value)
+        body += (
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{text}\r\n'
+        ).encode()
+    body += (
         f"--{boundary}\r\n"
         f'Content-Disposition: form-data; name="{field_name}"; filename="{safe_name}"\r\n'
         f"Content-Type: {upload.content_type}\r\n\r\n"
     ).encode()
-    body = head + upload.content + f"\r\n--{boundary}--\r\n".encode()
+    body += upload.content + f"\r\n--{boundary}--\r\n".encode()
     return body, f"multipart/form-data; boundary={boundary}"
 
 
@@ -74,12 +82,13 @@ class Client:
         *,
         body: Any = None,
         upload: tuple[str, Upload] | None = None,
+        fields: dict[str, object] | None = None,
         raw: bool = False,
     ) -> Any:
         """Send a request; returns parsed JSON, or bytes when ``raw``."""
         while True:
             try:
-                return self._send(method, path, body=body, upload=upload, raw=raw)
+                return self._send(method, path, body=body, upload=upload, fields=fields, raw=raw)
             except ApiError as exc:
                 if exc.status != 429:
                     raise
@@ -101,12 +110,13 @@ class Client:
         *,
         body: Any,
         upload: tuple[str, Upload] | None,
+        fields: dict[str, object] | None,
         raw: bool,
     ) -> Any:
         headers = {"User-Agent": USER_AGENT, "Accept": "application/json"}
         data: bytes | None = None
         if upload is not None:
-            data, headers["Content-Type"] = _multipart(*upload)
+            data, headers["Content-Type"] = _multipart(*upload, fields)
         elif body is not None:
             data = json.dumps(body).encode()
             headers["Content-Type"] = "application/json"

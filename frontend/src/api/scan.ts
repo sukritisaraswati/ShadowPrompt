@@ -2,7 +2,7 @@
 
 import { get, post } from "./client";
 import { downloadReport } from "./download";
-import type { DemoPage, Page, ReportFormat, ScanResult, ScanSummary, Severity } from "./types";
+import type { DemoPage, Page, ReportFormat, ScanCapabilities, ScanResult, ScanSummary, Severity } from "./types";
 
 /** Mirrors the backend upload ceiling so users get instant feedback. */
 export const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
@@ -11,14 +11,30 @@ export const ALLOWED_EXTENSIONS = [".html", ".htm"];
 /** Scans fetch pages and parse documents, so allow longer than the default. */
 const SCAN_TIMEOUT_MS = 60_000;
 
-export function scanUrl(url: string, signal?: AbortSignal): Promise<ScanResult> {
-  return post<ScanResult>("/scan/url", { url }, { signal, timeout: SCAN_TIMEOUT_MS });
+// Rendering launches a browser and loads scripts, so it gets longer.
+const RENDER_TIMEOUT_MS = 120_000;
+
+export interface ScanOptions {
+  /** Also run the page's JavaScript in the server's sandboxed browser. */
+  render?: boolean;
 }
 
-export function scanFile(file: File, signal?: AbortSignal): Promise<ScanResult> {
+export function scanUrl(url: string, signal?: AbortSignal, options: ScanOptions = {}): Promise<ScanResult> {
+  const render = Boolean(options.render);
+  return post<ScanResult>("/scan/url", { url, render }, { signal, timeout: render ? RENDER_TIMEOUT_MS : SCAN_TIMEOUT_MS });
+}
+
+export function scanFile(file: File, signal?: AbortSignal, options: ScanOptions = {}): Promise<ScanResult> {
+  const render = Boolean(options.render);
   const form = new FormData();
   form.append("file", file);
-  return post<ScanResult>("/scan/html", form, { signal, timeout: SCAN_TIMEOUT_MS });
+  form.append("render", String(render));
+  return post<ScanResult>("/scan/html", form, { signal, timeout: render ? RENDER_TIMEOUT_MS : SCAN_TIMEOUT_MS });
+}
+
+/** What this server's scanner can do. */
+export function getScanCapabilities(signal?: AbortSignal): Promise<ScanCapabilities> {
+  return get<ScanCapabilities>("/scan/capabilities", { signal });
 }
 
 export function scanDemo(demoId: string, signal?: AbortSignal): Promise<ScanResult> {

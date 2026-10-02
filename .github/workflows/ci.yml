@@ -50,7 +50,8 @@ jobs:
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,postgres,pdf,layer3]"
+          pip install -e ".[dev,postgres,pdf,layer3,render]"
+          python -m playwright install --with-deps chromium-headless-shell
 
       - name: Lint
         run: |
@@ -58,6 +59,11 @@ jobs:
           ruff format --check .
 
       - name: Tests
+        # GitHub's Ubuntu runners restrict the user namespaces Chromium's
+        # sandbox needs, so the rendering tests run with the runner as the
+        # sandbox, as in the Docker image.
+        env:
+          SCANNER_RENDER_CHROMIUM_SANDBOX: "false"
         run: pytest --cov=app --cov-report=term-missing
 
       - name: Migrations apply cleanly on PostgreSQL
