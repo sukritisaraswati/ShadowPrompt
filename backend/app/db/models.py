@@ -203,6 +203,26 @@ class TestResult(Base):
     __table_args__ = (Index("ix_test_results_campaign_level", "campaign_id", "level"),)
 
 
+class PayloadPack(Base):
+    """A custom test pack uploaded by a user, validated before it is stored."""
+
+    __tablename__ = "payload_packs"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    test_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Number of tests at each level, e.g. {"1": 3, "4": 1}.
+    level_counts: Mapped[dict] = mapped_column(JSON, nullable=False)
+    # The validated pack, re-validated whenever it is used.
+    content: Mapped[dict] = mapped_column(JSON, nullable=False)
+    # SHA-256 of the canonical content, so the same file is stored once.
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+
+
 # --------------------------------------------------------------------------- #
 # ShadowScan tables
 # --------------------------------------------------------------------------- #

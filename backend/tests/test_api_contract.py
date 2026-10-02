@@ -22,6 +22,12 @@ LAB_ENDPOINTS = [
     ("POST", "/api/v1/lab/reports"),
     ("GET", "/api/v1/lab/payload-library/summary"),
     ("GET", "/api/v1/lab/capabilities"),
+    ("POST", "/api/v1/lab/payload-packs"),
+    ("GET", "/api/v1/lab/payload-packs"),
+    ("GET", "/api/v1/lab/payload-packs/schema"),
+    ("GET", "/api/v1/lab/payload-packs/example"),
+    ("GET", "/api/v1/lab/payload-packs/{pack_id}"),
+    ("DELETE", "/api/v1/lab/payload-packs/{pack_id}"),
 ]
 
 SCAN_ENDPOINTS = [
@@ -52,6 +58,7 @@ def test_no_endpoint_is_still_a_stub(client, method: str, path: str) -> None:
         campaign_id="00000000-0000-4000-8000-000000000000",
         scan_id="00000000-0000-4000-8000-000000000000",
         demo_id="no-such-demo",
+        pack_id="00000000-0000-4000-8000-000000000000",
     )
     assert client.request(method, concrete).status_code != 501
 

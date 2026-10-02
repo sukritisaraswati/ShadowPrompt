@@ -69,6 +69,12 @@ class Settings(BaseSettings):
     llm_allow_private_endpoints: bool = False
     max_concurrent_campaigns: int = 3
 
+    # --- Custom payload packs (Lab, Phase 4) ---
+    custom_packs_enabled: bool = True
+    # Cap on stored packs, so anonymous uploads cannot fill the database.
+    custom_packs_max_stored: int = 200
+    rate_limit_pack_uploads_per_hour: int = 20
+
     # --- Rate limiting ---
     rate_limit_scans_per_minute: int = 10
     rate_limit_campaigns_per_hour: int = 5

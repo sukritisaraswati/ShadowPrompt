@@ -14,6 +14,7 @@ import Compare from "@/pages/lab/Compare";
 import Configure from "@/pages/lab/Configure";
 import Connect from "@/pages/lab/Connect";
 import History from "@/pages/lab/History";
+import Packs from "@/pages/lab/Packs";
 import Results from "@/pages/lab/Results";
 import Running from "@/pages/lab/Running";
 import DemoLab from "@/pages/scan/DemoLab";
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="lab">
           <Route path="connect" element={<Connect />} />
           <Route path="configure" element={<Configure />} />
+          <Route path="packs" element={<Packs />} />
           <Route path="running" element={<Running />} />
           <Route path="results/:id" element={<Results />} />
           <Route path="history" element={<History />} />

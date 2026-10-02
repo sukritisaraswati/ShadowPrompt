@@ -67,6 +67,11 @@ function ResultCard({ result }: { result: TestResult }) {
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <VerdictBadge verdict={result.verdict} />
         <h3 className="font-semibold">{result.name}</h3>
+        {result.custom_pack && (
+          <span className="rounded bg-violet-100 px-1.5 py-0.5 text-xs text-violet-800 dark:bg-violet-900/40 dark:text-violet-200" title={`From the custom pack ${result.custom_pack}`}>
+            custom
+          </span>
+        )}
         {result.language && result.language !== "en" && (
           <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs uppercase text-slate-600 dark:bg-slate-800 dark:text-slate-300" title={result.language_name}>
             {result.language}

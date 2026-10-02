@@ -61,6 +61,8 @@ class CampaignCreate(BaseModel):
     max_retries: int = Field(default=1, ge=0, le=3)
     # Language packs to add to the English tests, e.g. ["es", "hi"].
     languages: list[str] = Field(default_factory=list, max_length=len(EXTRA_LANGUAGES))
+    # Uploaded custom packs whose tests join the selected levels.
+    custom_pack_ids: list[uuid.UUID] = Field(default_factory=list, max_length=5)
 
     @field_validator("languages")
     @classmethod
@@ -113,6 +115,8 @@ class TestResultOut(BaseModel):
     objective: str
     language: str = "en"
     language_name: str = "English"
+    # Name of the uploaded pack this test came from, if any.
+    custom_pack: str | None = None
     # The attack text, shown only once the test has run.
     attack_text: str
     verdict: Verdict
@@ -189,6 +193,28 @@ class PayloadLibrarySummary(BaseModel):
     levels: list[LevelSummary]
     # Opt-in packs in other languages.
     languages: list[LanguagePackSummary] = Field(default_factory=list)
+
+
+class PackTestOut(BaseModel):
+    id: str
+    level: int
+    name: str
+    objective: str
+    language: str
+
+
+class PayloadPackSummary(BaseModel):
+    id: uuid.UUID
+    name: str
+    description: str | None
+    test_count: int
+    # Tests at each level, keyed by level number.
+    level_counts: dict[int, int]
+    created_at: datetime
+
+
+class PayloadPackOut(PayloadPackSummary):
+    tests: list[PackTestOut]
 
 
 class CampaignReportRequest(BaseModel):

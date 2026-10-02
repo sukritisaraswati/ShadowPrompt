@@ -16,6 +16,7 @@ interface NavItem {
 const LAB_NAV: NavItem[] = [
   { to: "/lab/connect", label: "Connect" },
   { to: "/lab/configure", label: "Configure" },
+  { to: "/lab/packs", label: "Custom tests" },
   { to: "/lab/history", label: "History" },
   { to: "/lab/compare", label: "Compare" },
 ];

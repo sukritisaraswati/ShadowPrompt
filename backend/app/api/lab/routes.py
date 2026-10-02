@@ -14,14 +14,14 @@ from collections.abc import AsyncIterator
 from datetime import datetime
 from urllib.parse import urlsplit
 
-from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.errors import AppError
-from app.core.limits import campaign_rate_limit, connect_rate_limit
-from app.db.models import Campaign, CampaignStatus, ReportType, Session
+from app.core.limits import campaign_rate_limit, connect_rate_limit, pack_upload_rate_limit
+from app.db.models import Campaign, CampaignStatus, PayloadPack, ReportType, Session
 from app.db.session import get_db
 from app.schemas.common import ErrorCode, ErrorResponse
 from app.schemas.lab import (
@@ -34,14 +34,18 @@ from app.schemas.lab import (
     ConnectionTestOut,
     LabCapabilities,
     PayloadLibrarySummary,
+    PayloadPackOut,
+    PayloadPackSummary,
 )
 from app.services.lab import campaign_service
+from app.services.lab.custom_packs import MAX_PACK_BYTES, example_pack, parse_pack
+from app.services.lab.custom_packs import json_schema as pack_json_schema
 from app.services.lab.evaluator import summarize
 from app.services.lab.events import events
 from app.services.lab.judge import Judge, get_judge
 from app.services.lab.llm_client import ChatMessage, LlmBackend, LlmConfig, chat
 from app.services.lab.orchestrator import ACTIVE_STATUSES, registry, run_campaign
-from app.services.lab.payloads import AVAILABLE_LEVELS, get_library
+from app.services.lab.payloads import AVAILABLE_LEVELS, Payload, get_library
 from app.services.reports.campaign_report import render_campaign_report
 from app.services.reports.delivery import deliver_report
 
@@ -74,6 +78,127 @@ def _config(connection: ConnectionIn, *, timeout: float, retries: int) -> LlmCon
 
 def _not_found() -> AppError:
     return AppError(ErrorCode.NOT_FOUND, "Campaign not found.", status_code=404)
+
+
+def _pack_not_found() -> AppError:
+    return AppError(ErrorCode.NOT_FOUND, "Custom test pack not found.", status_code=404)
+
+
+async def _custom_payloads(db: AsyncSession, pack_ids: list[uuid.UUID]) -> list[Payload]:
+    payloads: list[Payload] = []
+    for pack_id in dict.fromkeys(pack_ids):
+        row = await db.get(PayloadPack, pack_id)
+        if row is None:
+            raise _pack_not_found()
+        payloads.extend(campaign_service.pack_payloads(row))
+    return payloads
+
+
+# --------------------------------------------------------------------------- #
+# Custom payload packs
+# --------------------------------------------------------------------------- #
+
+
+def _packs_enabled() -> None:
+    if not get_settings().custom_packs_enabled:
+        raise AppError(
+            ErrorCode.NOT_FOUND,
+            "Custom test packs are switched off on this server.",
+            status_code=404,
+        )
+
+
+@router.post(
+    "/payload-packs",
+    response_model=PayloadPackOut,
+    status_code=201,
+    responses=_ERRORS | {413: {"model": ErrorResponse}},
+    summary="Upload a custom test pack",
+    dependencies=[Depends(_packs_enabled), Depends(pack_upload_rate_limit)],
+)
+async def upload_pack(
+    response: Response,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+) -> PayloadPackOut:
+    """Validate a ``shadowprompt-pack/1`` JSON file and store it.
+
+    Uploading the same content again returns the stored pack with status 200.
+    """
+    raw = await file.read(MAX_PACK_BYTES + 1)
+    pack, sha256 = parse_pack(raw)
+    existing = await campaign_service.find_pack_by_hash(db, sha256)
+    if existing is not None:
+        response.status_code = 200
+        return campaign_service.pack_out(existing)
+    if await campaign_service.count_packs(db) >= get_settings().custom_packs_max_stored:
+        raise AppError(
+            ErrorCode.CONFLICT,
+            "The server's limit on stored test packs is reached. Delete a pack first.",
+            status_code=409,
+        )
+    row = await campaign_service.create_pack(db, pack, sha256)
+    await db.commit()
+    return campaign_service.pack_out(row)
+
+
+@router.get(
+    "/payload-packs",
+    response_model=list[PayloadPackSummary],
+    summary="List custom test packs",
+    dependencies=[Depends(_packs_enabled)],
+)
+async def list_packs(db: AsyncSession = Depends(get_db)) -> list[PayloadPackSummary]:
+    return [campaign_service.pack_summary(row) for row in await campaign_service.list_packs(db)]
+
+
+@router.get(
+    "/payload-packs/schema",
+    summary="JSON Schema of the pack format",
+    dependencies=[Depends(_packs_enabled)],
+)
+async def pack_schema() -> dict:
+    return pack_json_schema()
+
+
+@router.get(
+    "/payload-packs/example",
+    summary="An example pack to start from",
+    dependencies=[Depends(_packs_enabled)],
+)
+async def pack_example() -> dict:
+    return example_pack()
+
+
+@router.get(
+    "/payload-packs/{pack_id}",
+    response_model=PayloadPackOut,
+    responses=_ERRORS,
+    summary="Get a custom test pack",
+    dependencies=[Depends(_packs_enabled)],
+)
+async def get_pack(pack_id: uuid.UUID, db: AsyncSession = Depends(get_db)) -> PayloadPackOut:
+    row = await db.get(PayloadPack, pack_id)
+    if row is None:
+        raise _pack_not_found()
+    return campaign_service.pack_out(row)
+
+
+@router.delete(
+    "/payload-packs/{pack_id}",
+    status_code=204,
+    responses=_ERRORS,
+    summary="Delete a custom test pack",
+    dependencies=[Depends(_packs_enabled)],
+)
+async def delete_pack(pack_id: uuid.UUID, db: AsyncSession = Depends(get_db)) -> Response:
+    """Campaigns that ran the pack keep their own copy of its tests."""
+    row = await db.get(PayloadPack, pack_id)
+    if row is None:
+        raise _pack_not_found()
+    await db.delete(row)
+    await db.commit()
+    return Response(status_code=204)
 
 
 @router.get(
@@ -170,8 +295,13 @@ async def start_campaign(
         )
 
     campaign_id = uuid.uuid4()
+    custom = await _custom_payloads(db, body.custom_pack_ids)
     payloads = get_library().select(
-        body.levels, body.sample_size, seed=str(campaign_id), languages=body.languages
+        body.levels,
+        body.sample_size,
+        seed=str(campaign_id),
+        languages=body.languages,
+        extra=custom,
     )
     campaign = Campaign(
         id=campaign_id,
@@ -182,6 +312,9 @@ async def start_campaign(
         config={
             "sample_size": body.sample_size,
             "languages": body.languages,
+            "custom_pack_ids": [str(pack_id) for pack_id in body.custom_pack_ids],
+            # The custom tests as they were run, kept with the campaign.
+            "custom_payloads": campaign_service.custom_snapshot(payloads),
             "timeout_seconds": body.timeout_seconds,
             "max_retries": body.max_retries,
         },

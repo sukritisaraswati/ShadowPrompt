@@ -106,6 +106,7 @@ beforeEach(() => {
   delete (window as unknown as { __labPwned?: boolean }).__labPwned;
   // A hosted deployment by default: local endpoints are off.
   vi.spyOn(labApi, "getCapabilities").mockResolvedValue({ local_endpoints_allowed: false, judge_enabled: false });
+  vi.spyOn(labApi, "listPacks").mockResolvedValue([]);
 });
 
 // --------------------------------------------------------------------------
@@ -205,11 +206,11 @@ describe("Connect", () => {
 // --------------------------------------------------------------------------
 
 describe("Configure", () => {
-  it("asks for a connection first", () => {
-    // Never settles, so no state update lands after the test ends.
-    vi.spyOn(labApi, "getPayloadSummary").mockReturnValue(new Promise(() => undefined));
+  it("asks for a connection first, without loading anything", () => {
+    const summary = vi.spyOn(labApi, "getPayloadSummary");
     renderAt("/lab/configure", "/lab/configure", <Configure />);
     expect(screen.getByRole("link", { name: /connect a model/i })).toBeInTheDocument();
+    expect(summary).not.toHaveBeenCalled();
   });
 
   it("lists levels, disables unreleased ones, and counts tests", async () => {
@@ -242,7 +243,27 @@ describe("Configure", () => {
       timeoutSeconds: 30,
       maxRetries: 1,
       languages: [],
+      customPackIds: [],
     });
+  });
+
+  it("adds custom packs to the count and the request", async () => {
+    vi.spyOn(labApi, "getPayloadSummary").mockResolvedValue(LIBRARY);
+    vi.spyOn(labApi, "listPacks").mockResolvedValue([
+      { id: "pack-1", name: "Helpdesk <b>tests</b>", description: null, test_count: 3, level_counts: { "1": 2, "3": 1 }, created_at: "2026-10-02T10:00:00Z" },
+    ]);
+    const start = vi.spyOn(labApi, "startCampaign").mockResolvedValue({ campaign_id: "abc", status: "pending", total_tests: 22 });
+    renderAt("/lab/configure", "/lab/configure", <Connected><Configure /></Connected>);
+
+    // The pack name is user content and renders as plain text.
+    const pack = await screen.findByRole("checkbox", { name: "Helpdesk <b>tests</b> 3 tests at levels 1, 3" });
+    expect(document.querySelector("b")).toBeNull();
+    await userEvent.click(pack);
+    // Level 1 only: 20 library tests plus the pack's 2 Level 1 tests.
+    await userEvent.click(screen.getByRole("button", { name: /start campaign \(22 tests\)/i }));
+
+    await screen.findByText(/running page reached/i);
+    expect(start.mock.calls[0][2].customPackIds).toEqual(["pack-1"]);
   });
 
   it("adds language packs to the count and the request", async () => {

@@ -273,6 +273,8 @@ export interface TestResult {
   objective: string;
   language?: string;
   language_name?: string;
+  /** Name of the uploaded pack this test came from, if any. */
+  custom_pack?: string | null;
   /** Attack text, shown only after the test ran. Render as text. */
   attack_text: string;
   verdict: Verdict;
@@ -311,6 +313,30 @@ export interface LevelSummary {
   danger: string;
   test_count: number;
   available: boolean;
+}
+
+/** A test inside an uploaded custom pack. */
+export interface PackTest {
+  id: string;
+  level: number;
+  name: string;
+  objective: string;
+  language: string;
+}
+
+/** An uploaded custom test pack. Name and tests are user content: render as text. */
+export interface PayloadPackSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  test_count: number;
+  /** Tests at each level, keyed by level number. */
+  level_counts: Record<string, number>;
+  created_at: string;
+}
+
+export interface PayloadPack extends PayloadPackSummary {
+  tests: PackTest[];
 }
 
 /** What this deployment allows. */

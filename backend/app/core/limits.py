@@ -19,11 +19,16 @@ from app.schemas.common import ErrorCode
 MULTIPART_OVERHEAD = 64 * 1024
 DEFAULT_BODY_LIMIT = 256 * 1024
 UPLOAD_PATH = "/api/v1/scan/html"
+PACK_UPLOAD_PATH = "/api/v1/lab/payload-packs"
+# Mirrors custom_packs.MAX_PACK_BYTES; the service checks the exact limit.
+PACK_MAX_BYTES = 256 * 1024
 
 
 def _body_limit_for(path: str) -> int:
     if path == UPLOAD_PATH:
         return get_settings().upload_max_bytes + MULTIPART_OVERHEAD
+    if path == PACK_UPLOAD_PATH:
+        return PACK_MAX_BYTES + MULTIPART_OVERHEAD
     return DEFAULT_BODY_LIMIT
 
 
@@ -150,6 +155,17 @@ def scan_rate_limit(request: Request) -> None:
 def connect_rate_limit(request: Request) -> None:
     """Connection tests send a real request to the user's model, so they are limited too."""
     _enforce(request, "connect", 20, 60.0, "connection tests")
+
+
+def pack_upload_rate_limit(request: Request) -> None:
+    """Custom pack uploads per client per hour."""
+    _enforce(
+        request,
+        "pack_upload",
+        get_settings().rate_limit_pack_uploads_per_hour,
+        3600.0,
+        "pack uploads",
+    )
 
 
 def campaign_rate_limit(request: Request) -> None:

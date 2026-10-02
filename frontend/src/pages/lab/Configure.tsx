@@ -1,14 +1,14 @@
 /**
- * Campaign setup: choose levels, optional language packs, full suite or
- * sample, timeouts and retries.
+ * Campaign setup: choose levels, optional language packs and custom test
+ * packs, full suite or sample, timeouts and retries.
  */
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { toApiError } from "@/api/client";
-import { getPayloadSummary, startCampaign } from "@/api/lab";
-import type { ApiError, PayloadLibrarySummary } from "@/api/types";
+import { getPayloadSummary, listPacks, startCampaign } from "@/api/lab";
+import type { ApiError, PayloadLibrarySummary, PayloadPackSummary } from "@/api/types";
 import ErrorAlert from "@/components/ErrorAlert";
 import { describeConnection, useSession } from "@/context/SessionContext";
 
@@ -21,6 +21,8 @@ export default function Configure() {
   const [library, setLibrary] = useState<PayloadLibrarySummary | null>(null);
   const [levels, setLevels] = useState<number[]>([1]);
   const [languages, setLanguages] = useState<string[]>([]);
+  const [packs, setPacks] = useState<PayloadPackSummary[]>([]);
+  const [packIds, setPackIds] = useState<string[]>([]);
   const [mode, setMode] = useState<"full" | "sample">("full");
   const [sampleSize, setSampleSize] = useState(5);
   const [timeoutSeconds, setTimeoutSeconds] = useState(30);
@@ -28,26 +30,37 @@ export default function Configure() {
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const connected = Boolean(isVerified && connection && sessionId);
+
   useEffect(() => {
+    // Nothing to set up until a model is connected.
+    if (!connected) return;
     const controller = new AbortController();
     getPayloadSummary(controller.signal)
       .then(setLibrary)
       .catch((cause: unknown) => {
         if (!controller.signal.aborted) setError(toApiError(cause));
       });
+    // Custom packs are optional: if they cannot be listed, the section stays hidden.
+    listPacks(controller.signal)
+      .then(setPacks)
+      .catch(() => undefined);
     return () => controller.abort();
-  }, []);
+  }, [connected]);
 
   const testCount = useMemo(() => {
     if (!library) return 0;
-    const packs = (library.languages ?? []).filter((p) => languages.includes(p.code));
+    const added = [
+      ...(library.languages ?? []).filter((p) => languages.includes(p.code)),
+      ...packs.filter((p) => packIds.includes(p.id)),
+    ];
     return library.levels
       .filter((l) => levels.includes(l.level))
       .reduce((sum, l) => {
-        const pool = l.test_count + packs.reduce((n, p) => n + (p.level_counts[String(l.level)] ?? 0), 0);
+        const pool = l.test_count + added.reduce((n, p) => n + (p.level_counts[String(l.level)] ?? 0), 0);
         return sum + (mode === "sample" ? Math.min(sampleSize, pool) : pool);
       }, 0);
-  }, [library, levels, languages, mode, sampleSize]);
+  }, [library, levels, languages, packs, packIds, mode, sampleSize]);
 
   if (!isVerified || !connection || !sessionId) {
     return (
@@ -76,6 +89,10 @@ export default function Configure() {
     );
   }
 
+  function togglePack(id: string) {
+    setPackIds((current) => (current.includes(id) ? current.filter((p) => p !== id) : [...current, id]));
+  }
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     if (!connection || !sessionId || levels.length === 0) return;
@@ -88,6 +105,7 @@ export default function Configure() {
         timeoutSeconds,
         maxRetries,
         languages,
+        customPackIds: packIds,
       });
       navigate(`/lab/running?campaign=${started.campaign_id}`);
     } catch (cause) {
@@ -161,6 +179,43 @@ export default function Configure() {
             </div>
           </fieldset>
         )}
+
+        <fieldset>
+          <legend className="text-sm font-semibold">Custom tests</legend>
+          {packs.length === 0 ? (
+            <p className="mt-1 text-xs text-slate-500">
+              No custom packs yet.{" "}
+              <Link to="/lab/packs" className="text-accent-500 hover:underline">
+                Upload your own tests
+              </Link>{" "}
+              to run them alongside the library.
+            </p>
+          ) : (
+            <>
+              <p className="mt-1 text-xs text-slate-500">
+                A pack's tests run at their own levels, so select those levels too.{" "}
+                <Link to="/lab/packs" className="text-accent-500 hover:underline">
+                  Manage packs
+                </Link>
+              </p>
+              <ul className="mt-2 space-y-2">
+                {packs.map((pack) => (
+                  <li key={pack.id}>
+                    <label className="flex items-center gap-3 rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+                      <input type="checkbox" checked={packIds.includes(pack.id)} onChange={() => togglePack(pack.id)} disabled={busy} />
+                      <span className="flex-1 font-medium">{pack.name}</span>
+                      <span className="text-xs text-slate-500">
+                        {pack.test_count} {pack.test_count === 1 ? "test" : "tests"} at level
+                        {Object.keys(pack.level_counts).length === 1 ? " " : "s "}
+                        {Object.keys(pack.level_counts).join(", ")}
+                      </span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </fieldset>
 
         <fieldset>
           <legend className="text-sm font-semibold">Coverage</legend>

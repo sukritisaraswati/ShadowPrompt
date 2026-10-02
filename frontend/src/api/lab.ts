@@ -12,6 +12,8 @@ import type {
   ConnectionTestResult,
   LabCapabilities,
   Page,
+  PayloadPack,
+  PayloadPackSummary,
   PayloadLibrarySummary,
   ReportFormat,
 } from "./types";
@@ -46,6 +48,8 @@ export interface CampaignOptions {
   maxRetries: number;
   /** Language packs to add to the English tests, e.g. ["es", "hi"]. */
   languages?: string[];
+  /** Uploaded custom packs whose tests join their levels. */
+  customPackIds?: string[];
 }
 
 export function startCampaign(
@@ -61,6 +65,7 @@ export function startCampaign(
     timeout_seconds: options.timeoutSeconds,
     max_retries: options.maxRetries,
     languages: options.languages ?? [],
+    custom_pack_ids: options.customPackIds ?? [],
   });
 }
 
@@ -135,6 +140,43 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   { id: "lmstudio", label: "LM Studio", provider: "openai_compatible", baseUrl: "http://localhost:1234/v1", model: "local-model", needsKey: false, local: true },
   { id: "llamacpp", label: "llama.cpp server", provider: "openai_compatible", baseUrl: "http://localhost:8080/v1", model: "local-model", needsKey: false, local: true },
 ];
+
+// --------------------------------------------------------------------------
+// Custom test packs
+// --------------------------------------------------------------------------
+
+/** Largest pack file the server accepts. */
+export const MAX_PACK_BYTES = 256 * 1024;
+
+export function validatePackFile(file: File | null): string | null {
+  if (!file) return "Choose a pack file.";
+  if (!/\.json$/i.test(file.name)) return "A pack is a .json file.";
+  if (file.size === 0) return "The file is empty.";
+  if (file.size > MAX_PACK_BYTES) return "A pack may be at most 256 KB.";
+  return null;
+}
+
+export function listPacks(signal?: AbortSignal): Promise<PayloadPackSummary[]> {
+  return get<PayloadPackSummary[]>("/lab/payload-packs", { signal });
+}
+
+export function getPack(id: string, signal?: AbortSignal): Promise<PayloadPack> {
+  return get<PayloadPack>(`/lab/payload-packs/${encodeURIComponent(id)}`, { signal });
+}
+
+export function uploadPack(file: File): Promise<PayloadPack> {
+  const form = new FormData();
+  form.append("file", file);
+  return post<PayloadPack>("/lab/payload-packs", form);
+}
+
+export function deletePack(id: string): Promise<void> {
+  return del<void>(`/lab/payload-packs/${encodeURIComponent(id)}`);
+}
+
+/** Links for the example pack and the format's JSON Schema. */
+export const PACK_EXAMPLE_URL = `${API_BASE}/lab/payload-packs/example`;
+export const PACK_SCHEMA_URL = `${API_BASE}/lab/payload-packs/schema`;
 
 /** What this deployment allows (local endpoints, the Layer 3 judge). */
 export function getCapabilities(signal?: AbortSignal): Promise<LabCapabilities> {

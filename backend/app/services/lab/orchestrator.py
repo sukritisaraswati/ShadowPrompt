@@ -42,7 +42,7 @@ from app.services.lab.evaluator import Evaluation, evaluate, evaluate_conversati
 from app.services.lab.events import events
 from app.services.lab.judge import Judge, JudgeRequest
 from app.services.lab.llm_client import ChatMessage, LlmBackend, LlmConfig, LlmReply, chat
-from app.services.lab.payloads import Payload, get_library
+from app.services.lab.payloads import Payload
 from app.services.lab.scoring import level_score, overall_score
 
 logger = logging.getLogger(__name__)
@@ -175,7 +175,7 @@ async def _record(campaign_id: uuid.UUID, payload: Payload, **values: object) ->
 
     events.publish(
         campaign_id,
-        {"type": "result", "result": result_out(row, get_library()).model_dump(mode="json")},
+        {"type": "result", "result": result_out(row, payload).model_dump(mode="json")},
     )
     return row
 

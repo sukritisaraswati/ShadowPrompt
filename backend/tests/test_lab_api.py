@@ -179,6 +179,7 @@ def test_sampled_multi_level_campaign(client, use_model) -> None:
     assert result["config"] == {
         "sample_size": 3,
         "languages": [],
+        "custom_pack_ids": [],
         "timeout_seconds": 30.0,
         "max_retries": 1,
     }

@@ -89,8 +89,9 @@ class Turn(BaseModel):
 
 
 class PayloadSpec(BaseModel):
-    # L1-001 for the core library, L1-ES-01 for a language pack.
-    id: str = Field(pattern=r"^L[1-5]-(?:\d{3}|[A-Z]{2}-\d{2})$")
+    # L1-001 for the core library, L1-ES-01 for a language pack, and
+    # C1-3FA2B9-001 for test 1 of an uploaded custom pack.
+    id: str = Field(pattern=r"^(?:L[1-5]-(?:\d{3}|[A-Z]{2}-\d{2})|C[1-4]-[0-9A-F]{6}-\d{3})$")
     level: int = Field(ge=1, le=5)
     language: str = ENGLISH
     category: str
@@ -102,7 +103,8 @@ class PayloadSpec(BaseModel):
     system_context: str = Field(min_length=1)
     prompt: str | list[Turn]
     html_page: str | None = Field(
-        default=None, pattern=r"^L[45]-(?:\d{3}|[A-Z]{2}-\d{2})_[a-z0-9_]+\.html$"
+        default=None,
+        pattern=r"^(?:L[45]-(?:\d{3}|[A-Z]{2}-\d{2})|C4-[0-9A-F]{6}-\d{3})_[a-z0-9_]+\.html$",
     )
     page_url: str | None = None
     # Words from the page's visible content; a reply that mentions them did
@@ -115,7 +117,7 @@ class PayloadSpec(BaseModel):
 
     @model_validator(mode="after")
     def _consistent(self) -> PayloadSpec:
-        if not self.id.startswith(f"L{self.level}-"):
+        if self.id[1:].split("-")[0] != str(self.level):
             raise ValueError(f"{self.id} is filed under level {self.level}")
         if self.language not in LANGUAGE_NAMES:
             raise ValueError(f"{self.id} has unknown language {self.language!r}")
@@ -179,6 +181,8 @@ class PageScan:
 class Payload:
     spec: PayloadSpec
     page_html: str | None = field(default=None, repr=False)
+    # Set for tests from an uploaded custom pack.
+    pack_name: str | None = None
 
     @property
     def id(self) -> str:
@@ -246,7 +250,7 @@ class Payload:
         )
 
 
-def _check_secrets(spec: PayloadSpec, page: str | None) -> None:
+def check_secrets(spec: PayloadSpec, page: str | None) -> None:
     # A protected value must live only in the system context. If the attack
     # text contained it, an echo would look like a leak.
     attack = (
@@ -297,17 +301,18 @@ class PayloadLibrary:
         sample_size: int | None,
         seed: str,
         languages: Collection[str] = (),
+        extra: Collection[Payload] = (),
     ) -> list[Payload]:
         """Payloads for a campaign, level by level.
 
-        English tests always run; tests in ``languages`` are added to each
-        level's pool. A sample is drawn per level with a seed, so the same
-        campaign always selects the same tests, while different campaigns get
-        different ones.
+        English tests always run; tests in ``languages`` and ``extra`` (custom
+        pack tests) are added to the pool of their level. A sample is drawn
+        per level with a seed, so the same campaign always selects the same
+        tests, while different campaigns get different ones.
         """
         chosen: list[Payload] = []
         for level in sorted(set(levels)):
-            pool = self.for_level(level, languages)
+            pool = self.for_level(level, languages) + [p for p in extra if p.level == level]
             if sample_size is not None and sample_size < len(pool):
                 # Reproducible test selection, not security: plain random is right here.
                 rng = random.Random(f"{seed}:{level}")  # noqa: S311
@@ -338,7 +343,7 @@ def load_library(
             if not page_path.is_file():
                 raise ValueError(f"{item.id}: attack page {item.html_page} is missing")
             page = page_path.read_text(encoding="utf-8")
-        _check_secrets(item, page)
+        check_secrets(item, page)
         payloads.append(Payload(item, page))
     return PayloadLibrary(version=spec.version, payloads=tuple(payloads))
 
