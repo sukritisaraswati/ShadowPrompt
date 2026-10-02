@@ -7,9 +7,12 @@ built-in library, so a custom test is held to the same canary discipline:
 * It must name evidence of failure (a protected value, a forbidden phrase, a
   planted code, or a persona marker), and a protected value must appear in the
   system context and nowhere in the attack, so a leak is unambiguous.
-* Levels 1 to 4 only. Level 4 tests carry their attack page inline, which
-  ShadowScan scans like any other page. Level 5 live conversations are not
-  accepted, since they need scripted multi-turn evaluation.
+* Tests sit in the direct track (D1 to D5) or the indirect track (I1 to I4).
+  Indirect tests carry their attack page inline, which ShadowScan scans like
+  any other page. Live multi-turn conversations, and so I5, are not accepted.
+* Format ``shadowprompt-pack/2`` names each test's ``track``. Packs in the
+  older ``shadowprompt-pack/1`` are still read: levels 1 to 3 become D1 to D3
+  and level 4 becomes I1, which is where they sat before the tracks split.
 
 Abuse controls: unknown fields are rejected, the file and every text field
 have size limits, a pack holds at most ``MAX_TESTS`` tests, uploads are rate
@@ -18,10 +21,11 @@ limited, and the number of stored packs is capped by configuration.
 Minimal example::
 
     {
-      "format": "shadowprompt-pack/1",
+      "format": "shadowprompt-pack/2",
       "name": "Support bot regression tests",
       "tests": [
         {
+          "track": "direct",
           "level": 1,
           "name": "Asks for the refund override code",
           "objective": "secret",
@@ -46,18 +50,22 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from app.core.errors import AppError
 from app.schemas.common import ErrorCode
 from app.services.lab.payloads import (
-    LEVEL_INFO,
+    LEVELS,
+    LIVE_REQUIRED,
     PAGE_PLACEHOLDER,
     Objective,
     Payload,
     PayloadSpec,
     Signal,
+    Track,
     Turn,
     check_secrets,
+    level_code,
 )
 from app.services.languages import ENGLISH, LANGUAGE_NAMES
 
-PACK_FORMAT = "shadowprompt-pack/1"
+PACK_FORMAT = "shadowprompt-pack/2"
+LEGACY_FORMAT = "shadowprompt-pack/1"
 MAX_PACK_BYTES = 256 * 1024
 MAX_TESTS = 50
 MAX_PAGE_CHARS = 50_000
@@ -102,7 +110,9 @@ class CustomTest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    level: int = Field(ge=1, le=4)
+    # Defaults to indirect when the test has a page, otherwise direct.
+    track: Track | None = None
+    level: int = Field(ge=1, le=5)
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(default="", max_length=1_000)
     technique: str = Field(default="custom", min_length=1, max_length=60)
@@ -156,7 +166,7 @@ class CustomTest(BaseModel):
 class CustomPack(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    format: Literal["shadowprompt-pack/1"]
+    format: Literal["shadowprompt-pack/2", "shadowprompt-pack/1"]
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(default="", max_length=2_000)
     tests: list[CustomTest] = Field(min_length=1, max_length=MAX_TESTS)
@@ -167,11 +177,25 @@ def pack_code(pack_id: uuid.UUID) -> str:
     return pack_id.hex[:6].upper()
 
 
-def _spec(pack_id: uuid.UUID, index: int, test: CustomTest) -> PayloadSpec:
+def placement(test: CustomTest, legacy: bool) -> tuple[Track, int]:
+    """Where a test sits: its track and level within the track."""
+    if legacy:
+        return (Track.INDIRECT, 1) if test.level == 4 else (Track.DIRECT, test.level)
+    track = test.track or (Track.INDIRECT if test.page_html else Track.DIRECT)
+    return track, test.level
+
+
+def _spec(pack_id: uuid.UUID, index: int, test: CustomTest, legacy: bool) -> PayloadSpec:
     prompt = test.prompt
-    if test.level == 4:
+    track, level = placement(test, legacy)
+    code = level_code(track, level)
+    if legacy and test.level == 5:
+        raise ValueError("format shadowprompt-pack/1 has levels 1 to 4")
+    if code in LIVE_REQUIRED:
+        raise ValueError(f"{code} tests are live conversations, which packs cannot hold")
+    if track is Track.INDIRECT:
         if not test.page_html:
-            raise ValueError("Level 4 tests need page_html, the attack page")
+            raise ValueError("indirect tests need page_html, the attack page")
         texts = [prompt] if isinstance(prompt, str) else [t.content for t in prompt]
         if not any(PAGE_PLACEHOLDER in t for t in texts):
             if isinstance(prompt, str):
@@ -183,24 +207,25 @@ def _spec(pack_id: uuid.UUID, index: int, test: CustomTest) -> PayloadSpec:
                     Turn(role=last.role, content=f"{last.content}\n\n{PAGE_PLACEHOLDER}"),
                 ]
     elif test.page_html:
-        raise ValueError("page_html is only used by Level 4 tests")
+        raise ValueError("page_html is only used by indirect tests")
     elif test.objective is Objective.INJECTION:
-        raise ValueError("injection tests are Level 4 tests with a page")
+        raise ValueError("injection tests are indirect tests with a page")
 
-    test_id = f"C{test.level}-{pack_code(pack_id)}-{index:03d}"
+    test_id = f"C{code}-{pack_code(pack_id)}-{index:03d}"
     return PayloadSpec(
         id=test_id,
-        level=test.level,
+        track=track,
+        level=level,
         language=test.language,
-        category=LEVEL_INFO[test.level][1],
+        category=LEVELS[code].category,
         technique=test.technique,
         name=test.name,
-        description=test.description or f"Custom Level {test.level} test.",
+        description=test.description or f"Custom {code} test.",
         objective=test.objective,
         conversation="single",
         system_context=test.system_context,
         prompt=prompt,
-        html_page=f"{test_id}_custom.html" if test.level == 4 else None,
+        html_page=f"{test_id}_custom.html" if track is Track.INDIRECT else None,
         page_url=test.page_url,
         task_keywords=test.task_keywords,
         compliance_signals=test.compliance_signals,
@@ -212,9 +237,10 @@ def _spec(pack_id: uuid.UUID, index: int, test: CustomTest) -> PayloadSpec:
 def build_payloads(pack_id: uuid.UUID, pack: CustomPack, pack_name: str) -> list[Payload]:
     """Library payloads for a validated pack. Raises ValueError naming the test."""
     payloads = []
+    legacy = pack.format == LEGACY_FORMAT
     for index, test in enumerate(pack.tests, 1):
         try:
-            spec = _spec(pack_id, index, test)
+            spec = _spec(pack_id, index, test, legacy)
             check_secrets(spec, test.page_html)
         except (ValueError, ValidationError) as exc:
             raise ValueError(f"test {index} ({test.name}): {_first_error(exc)}") from exc

@@ -23,6 +23,11 @@ import httpx
 import pytest
 
 KEY = "sk-live-AUDIT-ME-0123456789abcdefghijklmnop"
+# English tests at each level of the two tracks.
+EXPECTED_LEVEL_COUNTS = {
+    "D1": 20, "D2": 25, "D3": 40, "D4": 4, "D5": 0,
+    "I1": 8, "I2": 16, "I3": 3, "I4": 3, "I5": 16,
+}  # fmt: skip
 BASE = "https://api.stub.example/v1"
 CODE = re.compile(r"access code: ([A-Z]+-\d{4})")
 
@@ -77,7 +82,7 @@ def connect(client) -> str:
     return response.json()["session_id"]
 
 
-def launch(client, session_id: str, levels=(1,), **extra) -> str:
+def launch(client, session_id: str, levels=("D1",), **extra) -> str:
     body = {"session_id": session_id, "connection": connection(), "levels": list(levels), **extra}
     response = client.post("/api/v1/lab/campaigns", json=body)
     assert response.status_code == 202, response.text
@@ -172,10 +177,10 @@ def test_results_expose_attack_text_and_reasons_after_the_run(client, use_model)
 
 def test_sampled_multi_level_campaign(client, use_model) -> None:
     use_model(aligned)
-    campaign_id = launch(client, connect(client), levels=(1, 2, 3), sample_size=3)
+    campaign_id = launch(client, connect(client), levels=("D1", "D2", "D3"), sample_size=3)
     result = wait_done(client, campaign_id)
     assert result["total_tests"] == 9
-    assert [ls["level"] for ls in result["level_scores"]] == [1, 2, 3]
+    assert [ls["code"] for ls in result["level_scores"]] == ["D1", "D2", "D3"]
     assert result["config"] == {
         "sample_size": 3,
         "languages": [],
@@ -193,7 +198,7 @@ def test_campaign_stopped_mid_run_saves_partial_results(client, use_model) -> No
         return aligned(request)
 
     use_model(slow)
-    campaign_id = launch(client, connect(client), levels=(1, 2, 3))
+    campaign_id = launch(client, connect(client), levels=("D1", "D2", "D3"))
 
     deadline = time.monotonic() + 10
     while client.get(f"/api/v1/lab/campaigns/{campaign_id}").json()["completed_tests"] < 3:
@@ -236,18 +241,22 @@ def test_repeated_model_errors_stop_the_campaign(client, use_model) -> None:
 
 def test_unknown_levels_are_rejected(client, use_model) -> None:
     use_model(aligned)
-    body = {"session_id": connect(client), "connection": connection(), "levels": [1, 6]}
+    body = {"session_id": connect(client), "connection": connection(), "levels": ["D1", "D6"]}
     assert client.post("/api/v1/lab/campaigns", json=body).status_code == 422
 
 
 def test_campaign_must_match_the_tested_connection(client, use_model) -> None:
     use_model(aligned)
-    body = {"session_id": connect(client), "connection": connection(model="other"), "levels": [1]}
+    body = {
+        "session_id": connect(client),
+        "connection": connection(model="other"),
+        "levels": ["D1"],
+    }
     assert client.post("/api/v1/lab/campaigns", json=body).status_code == 422
 
 
 def test_unknown_session_is_rejected(client) -> None:
-    body = {"session_id": str(uuid.uuid4()), "connection": connection(), "levels": [1]}
+    body = {"session_id": str(uuid.uuid4()), "connection": connection(), "levels": ["D1"]}
     assert client.post("/api/v1/lab/campaigns", json=body).status_code == 404
 
 
@@ -275,7 +284,12 @@ def test_campaign_history_lists_and_filters(client, use_model) -> None:
 def test_payload_summary_exposes_counts_but_never_payload_text(client) -> None:
     body = client.get("/api/v1/lab/payload-library/summary").json()
     assert body["total_tests"] == 135
-    assert [lvl["test_count"] for lvl in body["levels"]] == [20, 25, 40, 30, 20]
+    counts = {lvl["code"]: lvl["test_count"] for lvl in body["levels"]}
+    assert counts == EXPECTED_LEVEL_COUNTS
+    assert {t["track"]: t["test_count"] for t in body["tracks"]} == {
+        "direct": sum(v for k, v in EXPECTED_LEVEL_COUNTS.items() if k[0] == "D"),
+        "indirect": sum(v for k, v in EXPECTED_LEVEL_COUNTS.items() if k[0] == "I"),
+    }
     assert all(lvl["available"] for lvl in body["levels"])
     text = json.dumps(body)
     assert "access code" not in text.lower() and "PWNED" not in text
@@ -341,7 +355,7 @@ def test_campaign_pdf_report(client, use_model) -> None:
 def test_api_key_never_reaches_the_database_or_logs(client, use_model, caplog) -> None:
     use_model(vulnerable)
     with caplog.at_level(logging.DEBUG):
-        campaign_id = launch(client, connect(client), levels=(1, 2), sample_size=3)
+        campaign_id = launch(client, connect(client), levels=("D1", "D2"), sample_size=3)
         wait_done(client, campaign_id)
         client.post("/api/v1/lab/reports", json={"campaign_id": campaign_id})
         client.get("/api/v1/lab/campaigns")
@@ -385,7 +399,7 @@ def test_campaign_launches_are_rate_limited(client, use_model, monkeypatch) -> N
     session_id = connect(client)
     monkeypatch.setattr(get_settings(), "rate_limit_campaigns_per_hour", 2)
     ids = [launch(client, session_id) for _ in range(2)]
-    body = {"session_id": session_id, "connection": connection(), "levels": [1]}
+    body = {"session_id": session_id, "connection": connection(), "levels": ["D1"]}
     response = client.post("/api/v1/lab/campaigns", json=body)
     assert response.status_code == 429
     for campaign_id in ids:
@@ -399,7 +413,7 @@ async def test_orphaned_campaigns_are_failed_on_startup(db_session) -> None:
     session = Session(model_name="m", provider="p")
     db_session.add(session)
     await db_session.flush()
-    campaign = Campaign(session_id=session.id, levels_run=[1], status=CampaignStatus.RUNNING)
+    campaign = Campaign(session_id=session.id, levels_run=["D1"], status=CampaignStatus.RUNNING)
     db_session.add(campaign)
     await db_session.commit()
 

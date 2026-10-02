@@ -23,7 +23,7 @@ import ErrorAlert from "@/components/ErrorAlert";
 
 function levelsLabel(counts: Record<string, number>): string {
   return Object.entries(counts)
-    .map(([level, n]) => `L${level}×${n}`)
+    .map(([code, n]) => `${code}×${n}`)
     .join(" · ");
 }
 
@@ -92,7 +92,7 @@ function PackRow({ pack, onDeleted }: { pack: PayloadPackSummary; onDeleted: () 
             {detail.tests.map((t) => (
               <tr key={t.id} className="border-t border-slate-100 dark:border-slate-800">
                 <td className="py-1 pr-3">{t.name}</td>
-                <td className="py-1 pr-3">{t.level}</td>
+                <td className="py-1 pr-3">{t.code}</td>
                 <td className="py-1 pr-3">{t.objective}</td>
                 <td className="py-1 uppercase">{t.language}</td>
               </tr>

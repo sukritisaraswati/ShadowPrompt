@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { fetchHealth, toApiError } from "@/api/client";
-import { ATTACK_LEVELS, type ApiError, type HealthResponse } from "@/api/types";
+import { ATTACK_TRACKS, type ApiError, type HealthResponse } from "@/api/types";
 
 function BackendStatus() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
@@ -98,7 +98,7 @@ export default function Home() {
       <section className="grid gap-4 sm:grid-cols-2">
         <ServiceCard
           title="ShadowPrompt Lab"
-          description="Connect your LLM via API and run level 1 through 5 attack campaigns, from basic jailbreaks to chained multi-vector attacks. Produces a scored security report."
+          description="Connect your LLM and attack it in two tracks of five levels: direct prompt injection, typed by the user, and indirect prompt injection, hidden in content it reads. Produces a scored security report."
           to="/lab/connect"
           cta="Connect a model"
         />
@@ -110,20 +110,25 @@ export default function Home() {
         />
       </section>
 
-      <section>
-        <h2 className="text-xl font-semibold">The five attack levels</h2>
-        <ul className="mt-3 space-y-2">
-          {ATTACK_LEVELS.map(({ level, name, danger }) => (
-            <li
-              key={level}
-              className="flex items-center gap-3 rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-800"
-            >
-              <span className="w-6 shrink-0 text-center font-bold text-accent-500">{level}</span>
-              <span className="flex-1 font-medium">{name}</span>
-              <span className="text-slate-500">{danger}</span>
-            </li>
-          ))}
-        </ul>
+      <section className="grid gap-6 md:grid-cols-2">
+        {ATTACK_TRACKS.map((track) => (
+          <div key={track.track}>
+            <h2 className="text-xl font-semibold">{track.name}</h2>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{track.summary}</p>
+            <ul className="mt-3 space-y-2">
+              {track.levels.map(({ code, name, danger }) => (
+                <li
+                  key={code}
+                  className="flex items-center gap-3 rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-800"
+                >
+                  <span className="w-7 shrink-0 text-center font-bold text-accent-500">{code}</span>
+                  <span className="flex-1 font-medium">{name}</span>
+                  <span className="text-slate-500">{danger}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </section>
     </div>
   );

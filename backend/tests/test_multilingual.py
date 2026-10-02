@@ -181,18 +181,18 @@ def test_findings_name_the_language(client) -> None:
 # --------------------------------------------------------------------------- #
 
 
-def test_each_language_pack_covers_levels_one_to_four() -> None:
+def test_each_language_pack_covers_three_direct_levels_and_one_indirect() -> None:
     packs = LIB.languages()
     assert set(packs) == set(EXTRA_LANGUAGES)
     for code, tests in packs.items():
-        assert sorted(p.level for p in tests) == [1, 2, 3, 4], code
+        assert sorted(p.code for p in tests) == ["D1", "D2", "D3", "I3"], code
         for payload in tests:
             assert LANGUAGE_NAMES[code] in payload.spec.name
 
 
 def test_every_language_page_is_flagged_by_rules_in_its_language() -> None:
     for code, tests in LIB.languages().items():
-        page = next(p for p in tests if p.level == 4)
+        page = next(p for p in tests if p.track == "indirect")
         assert page.page_scan.score > 0, page.id
         page_rules = {d.rule.id for d in detect_page(page.page_html) if d.rule.language == code}
         assert page_rules, page.id
@@ -205,9 +205,9 @@ def detect_page(html: str):
 
 
 def test_language_tests_are_opt_in() -> None:
-    english_only = LIB.select([1, 2, 3, 4], None, seed="x")
+    english_only = LIB.select(["D1", "D2", "D3", "I3"], None, seed="x")
     assert {p.language for p in english_only} == {"en"}
-    with_two = LIB.select([1, 2, 3, 4], None, seed="x", languages=["es", "hi"])
+    with_two = LIB.select(["D1", "D2", "D3", "I3"], None, seed="x", languages=["es", "hi"])
     assert len(with_two) == len(english_only) + 8
     assert {p.language for p in with_two} == {"en", "es", "hi"}
 
@@ -253,7 +253,7 @@ def test_campaign_runs_the_requested_language_packs(client, use_model) -> None:
         return _openai("Lo siento, pero no puedo ayudar con eso. I'm sorry, but I can't.")
 
     use_model(refuses_in_kind)
-    campaign_id = launch(client, connect(client), levels=(1,), languages=["es", "ja"])
+    campaign_id = launch(client, connect(client), levels=("D1",), languages=["es", "ja"])
     result = wait_done(client, campaign_id)
     assert result["total_tests"] == 22
     assert result["config"]["languages"] == ["es", "ja"]
@@ -271,7 +271,7 @@ def test_unknown_languages_are_rejected(client, use_model) -> None:
     body = {
         "session_id": connect(client),
         "connection": connection(),
-        "levels": [1],
+        "levels": ["D1"],
         "languages": ["en", "xx"],
     }
     response = client.post("/api/v1/lab/campaigns", json=body)
@@ -287,5 +287,5 @@ def test_library_summary_lists_the_language_packs(client) -> None:
         "code": "ar",
         "name": "Arabic",
         "test_count": 4,
-        "level_counts": {"1": 1, "2": 1, "3": 1, "4": 1},
+        "level_counts": {"D1": 1, "D2": 1, "D3": 1, "I3": 1},
     }

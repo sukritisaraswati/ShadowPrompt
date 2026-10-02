@@ -18,7 +18,7 @@ const LIMITATIONS = [
   "Static HTML scanning misses content that JavaScript generates after page load.",
   "The evaluation engine cannot perfectly judge every response. Some verdicts need human review.",
   "Level 5 attacks span multiple turns, so models with very short context windows may behave differently.",
-  "Passing all five levels does not certify a model against all possible attacks.",
+  "Passing every level of both tracks does not certify a model against all possible attacks.",
   "Only the model's API interface is tested. Attacks needing fine-tuning or white-box access are out of scope.",
   "The nuanced-judgment evaluator is itself a language model, so its blind spots can bias those verdicts.",
 ];

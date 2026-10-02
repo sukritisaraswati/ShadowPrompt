@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field, SecretStr, field_validator
 from app.db.models import CampaignStatus, Verdict
 from app.schemas.common import PaginationMeta
 from app.services.lab.llm_client import Provider
+from app.services.lab.payloads import LEVEL_CODES
 from app.services.lab.scoring import Rating
 from app.services.languages import EXTRA_LANGUAGES
 
@@ -54,7 +55,8 @@ class ConnectionTestOut(BaseModel):
 class CampaignCreate(BaseModel):
     session_id: uuid.UUID
     connection: ConnectionIn
-    levels: list[int] = Field(min_length=1, max_length=5)
+    # Level codes: D1 to D5 (direct) and I1 to I5 (indirect).
+    levels: list[str] = Field(min_length=1, max_length=len(LEVEL_CODES))
     # Tests per level. ``None`` runs every test in each selected level.
     sample_size: int | None = Field(default=None, ge=1, le=40)
     timeout_seconds: float = Field(default=30.0, ge=5, le=120)
@@ -74,10 +76,12 @@ class CampaignCreate(BaseModel):
 
     @field_validator("levels")
     @classmethod
-    def _valid_levels(cls, value: list[int]) -> list[int]:
-        if any(level not in range(1, 6) for level in value):
-            raise ValueError("levels must be between 1 and 5")
-        return sorted(set(value))
+    def _valid_levels(cls, value: list[str]) -> list[str]:
+        codes = {str(code).strip().upper() for code in value}
+        unknown = sorted(codes - set(LEVEL_CODES))
+        if unknown:
+            raise ValueError(f"unknown levels {unknown}; use D1 to D5 and I1 to I5")
+        return [code for code in LEVEL_CODES if code in codes]
 
 
 class CampaignStarted(BaseModel):
@@ -94,6 +98,8 @@ class RatingOut(BaseModel):
 
 
 class LevelScoreOut(BaseModel):
+    code: str
+    track: str
     level: int
     name: str
     total: int
@@ -107,6 +113,8 @@ class LevelScoreOut(BaseModel):
 class TestResultOut(BaseModel):
     id: uuid.UUID
     payload_id: str
+    track: str = "direct"
+    code: str = ""
     level: int
     category: str
     technique: str
@@ -134,15 +142,24 @@ class SessionOut(BaseModel):
     endpoint_host: str | None
 
 
+class TrackScoreOut(BaseModel):
+    track: str
+    name: str
+    score: float | None
+    rating: RatingOut | None
+
+
 class CampaignSummaryOut(BaseModel):
     id: uuid.UUID
     session: SessionOut
-    levels_run: list[int]
+    levels_run: list[str]
     status: CampaignStatus
     total_tests: int
     completed_tests: int
     overall_score: float | None
     rating: RatingOut | None
+    # The score in each track that was run.
+    track_scores: list[TrackScoreOut] = Field(default_factory=list)
     started_at: datetime
     completed_at: datetime | None
 
@@ -150,7 +167,8 @@ class CampaignSummaryOut(BaseModel):
 class CampaignOut(CampaignSummaryOut):
     config: dict | None
     error_message: str | None
-    current_level: int | None
+    # The level code being run, e.g. "D2", while the campaign is active.
+    current_level: str | None
     level_scores: list[LevelScoreOut]
     results: list[TestResultOut]
 
@@ -170,26 +188,36 @@ class LabCapabilities(BaseModel):
 
 
 class LevelSummary(BaseModel):
+    code: str
+    track: str
     level: int
     name: str
+    description: str
     category: str
     danger: str
     test_count: int
     available: bool
 
 
+class TrackSummary(BaseModel):
+    track: str
+    name: str
+    test_count: int
+
+
 class LanguagePackSummary(BaseModel):
     code: str
     name: str
     test_count: int
-    # Tests in this pack at each level, keyed by level number.
-    level_counts: dict[int, int]
+    # Tests in this pack at each level, keyed by level code.
+    level_counts: dict[str, int]
 
 
 class PayloadLibrarySummary(BaseModel):
     version: int
     # English tests, which every campaign runs.
     total_tests: int
+    tracks: list[TrackSummary] = Field(default_factory=list)
     levels: list[LevelSummary]
     # Opt-in packs in other languages.
     languages: list[LanguagePackSummary] = Field(default_factory=list)
@@ -197,6 +225,8 @@ class PayloadLibrarySummary(BaseModel):
 
 class PackTestOut(BaseModel):
     id: str
+    code: str
+    track: str
     level: int
     name: str
     objective: str
@@ -208,8 +238,8 @@ class PayloadPackSummary(BaseModel):
     name: str
     description: str | None
     test_count: int
-    # Tests at each level, keyed by level number.
-    level_counts: dict[int, int]
+    # Tests at each level, keyed by level code.
+    level_counts: dict[str, int]
     created_at: datetime
 
 

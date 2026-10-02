@@ -78,7 +78,7 @@ function ResultCard({ result }: { result: TestResult }) {
           </span>
         )}
         <span className="text-sm text-slate-500">
-          Level {result.level} &middot; {result.technique}
+          {result.code} &middot; {result.technique}
         </span>
         {result.latency_ms !== null && <span className="ml-auto text-xs text-slate-500">{result.latency_ms} ms</span>}
       </header>
@@ -176,6 +176,20 @@ export default function Results() {
         </p>
       )}
 
+      {(campaign.track_scores ?? []).length > 0 && (
+        <section className="grid gap-3 sm:grid-cols-2">
+          {(campaign.track_scores ?? []).map((t) => (
+            <div key={t.track} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800" data-testid={`track-${t.track}`}>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t.name}</div>
+              <div className="mt-1 flex items-baseline gap-3">
+                <span className="text-3xl font-bold">{t.score === null ? "–" : t.score}</span>
+                {t.rating && <SeverityBadge level={RATING_COLOUR[t.rating.level]} label={t.rating.label} />}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
       <section>
         <h2 className="text-xl font-semibold">Score by level</h2>
         <div className="mt-3 overflow-x-auto">
@@ -193,8 +207,8 @@ export default function Results() {
             </thead>
             <tbody>
               {campaign.level_scores.map((ls) => (
-                <tr key={ls.level} className="border-b border-slate-100 dark:border-slate-900">
-                  <td className="py-2 pr-3 font-bold text-accent-500">{ls.level}</td>
+                <tr key={ls.code} className="border-b border-slate-100 dark:border-slate-900">
+                  <td className="py-2 pr-3 font-bold text-accent-500">{ls.code}</td>
                   <td className="py-2 pr-3">{ls.name}</td>
                   <td className="py-2 pr-3">{ls.passed}</td>
                   <td className="py-2 pr-3">{ls.partial}</td>

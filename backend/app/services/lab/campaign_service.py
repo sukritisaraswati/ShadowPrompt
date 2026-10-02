@@ -27,16 +27,21 @@ from app.schemas.lab import (
     RatingOut,
     SessionOut,
     TestResultOut,
+    TrackScoreOut,
+    TrackSummary,
 )
 from app.services.lab.custom_packs import CustomPack, build_payloads
 from app.services.lab.payloads import (
     AVAILABLE_LEVELS,
-    LEVEL_INFO,
+    LEVEL_CODES,
+    LEVELS,
+    TRACK_NAMES,
     Payload,
     PayloadLibrary,
     PayloadSpec,
+    level_code,
 )
-from app.services.lab.scoring import RATINGS, rating_for
+from app.services.lab.scoring import RATINGS, LevelScore, overall_score, rating_for
 from app.services.languages import language_name
 
 
@@ -134,16 +139,36 @@ def _session_out(session: Session) -> SessionOut:
     )
 
 
+def _level_scores(campaign: Campaign) -> list[LevelScore]:
+    return [
+        LevelScore(**{**ls, "track": ls.get("track", "direct")})
+        for ls in (campaign.level_scores or [])
+    ]
+
+
+def track_scores_out(campaign: Campaign) -> list[TrackScoreOut]:
+    scores = _level_scores(campaign)
+    out = []
+    for track, name in TRACK_NAMES.items():
+        if any(ls.track == track.value for ls in scores):
+            score = overall_score(scores, track.value)
+            out.append(
+                TrackScoreOut(track=track.value, name=name, score=score, rating=rating_out(score))
+            )
+    return out
+
+
 def summary_out(campaign: Campaign, completed: int) -> CampaignSummaryOut:
     return CampaignSummaryOut(
         id=campaign.id,
         session=_session_out(campaign.session),
-        levels_run=list(campaign.levels_run or []),
+        levels_run=[str(code) for code in (campaign.levels_run or [])],
         status=campaign.status,
         total_tests=campaign.total_tests,
         completed_tests=completed,
         overall_score=campaign.overall_score,
         rating=rating_out(campaign.overall_score),
+        track_scores=track_scores_out(campaign),
         started_at=campaign.started_at,
         completed_at=campaign.completed_at,
     )
@@ -155,6 +180,8 @@ def result_out(result: TestResult, payload: Payload | None) -> TestResultOut:
     return TestResultOut(
         id=result.id,
         payload_id=result.payload_id,
+        track=result.track,
+        code=level_code(result.track, result.level),
         level=result.level,
         category=result.category,
         technique=spec.technique if spec else "unknown",
@@ -208,16 +235,20 @@ def payload_resolver(
 def campaign_out(campaign: Campaign, library: PayloadLibrary) -> CampaignOut:
     results = sorted(campaign.test_results, key=lambda r: (r.created_at, r.payload_id))
     resolve = payload_resolver(campaign, library)
-    level_scores = [
-        LevelScoreOut(name=LEVEL_INFO[ls["level"]][0], **ls) for ls in (campaign.level_scores or [])
-    ]
+    level_scores = []
+    for ls in _level_scores(campaign):
+        code = level_code(ls.track, ls.level)
+        level_scores.append(LevelScoreOut(code=code, name=LEVELS[code].name, **ls.as_dict()))
     current_level = None
     if campaign.status in (
         CampaignStatus.PENDING,
         CampaignStatus.RUNNING,
         CampaignStatus.PAUSED,
     ):
-        current_level = results[-1].level if results else min(campaign.levels_run or [1])
+        if results:
+            current_level = level_code(results[-1].track, results[-1].level)
+        elif campaign.levels_run:
+            current_level = str(campaign.levels_run[0])
     return CampaignOut(
         **summary_out(campaign, len(results)).model_dump(),
         # The custom-test snapshot is internal; results already describe it.
@@ -241,26 +272,37 @@ def page_out(
 
 
 def library_summary(library: PayloadLibrary) -> PayloadLibrarySummary:
-    levels = []
-    for level, (name, category, danger) in LEVEL_INFO.items():
-        levels.append(
-            LevelSummary(
-                level=level,
-                name=name,
-                category=category,
-                danger=danger,
-                test_count=len(library.for_level(level)),
-                available=level in AVAILABLE_LEVELS,
-            )
+    levels = [
+        LevelSummary(
+            code=code,
+            track=info.track.value,
+            level=info.level,
+            name=info.name,
+            description=info.description,
+            category=info.category,
+            danger=info.danger,
+            test_count=len(library.for_level(code)),
+            available=code in AVAILABLE_LEVELS,
         )
+        for code, info in LEVELS.items()
+    ]
+    tracks = [
+        TrackSummary(
+            track=track.value,
+            name=name,
+            test_count=sum(level.test_count for level in levels if level.track == track.value),
+        )
+        for track, name in TRACK_NAMES.items()
+    ]
     packs = [
         LanguagePackSummary(
             code=code,
             name=language_name(code),
             test_count=len(tests),
             level_counts={
-                level: sum(1 for p in tests if p.level == level)
-                for level in sorted({p.level for p in tests})
+                code: sum(1 for p in tests if p.code == code)
+                for code in LEVEL_CODES
+                if any(p.code == code for p in tests)
             },
         )
         for code, tests in library.languages().items()
@@ -268,6 +310,7 @@ def library_summary(library: PayloadLibrary) -> PayloadLibrarySummary:
     return PayloadLibrarySummary(
         version=library.version,
         total_tests=sum(level.test_count for level in levels),
+        tracks=tracks,
         levels=levels,
         languages=packs,
     )
@@ -288,13 +331,13 @@ async def find_pack_by_hash(db: AsyncSession, sha256: str) -> PayloadPack | None
 
 async def create_pack(db: AsyncSession, pack: CustomPack, sha256: str) -> PayloadPack:
     counts: dict[str, int] = {}
-    for test in pack.tests:
-        counts[str(test.level)] = counts.get(str(test.level), 0) + 1
+    for payload in build_payloads(uuid.UUID(int=0), pack, pack.name):
+        counts[payload.code] = counts.get(payload.code, 0) + 1
     row = PayloadPack(
         name=pack.name,
         description=pack.description or None,
         test_count=len(pack.tests),
-        level_counts=dict(sorted(counts.items())),
+        level_counts={code: counts[code] for code in LEVEL_CODES if code in counts},
         content=pack.model_dump(mode="json"),
         sha256=sha256,
     )
@@ -320,7 +363,7 @@ def pack_summary(row: PayloadPack) -> PayloadPackSummary:
         name=row.name,
         description=row.description,
         test_count=row.test_count,
-        level_counts={int(k): v for k, v in row.level_counts.items()},
+        level_counts=dict(row.level_counts),
         created_at=row.created_at,
     )
 
@@ -329,6 +372,8 @@ def pack_out(row: PayloadPack) -> PayloadPackOut:
     tests = [
         PackTestOut(
             id=p.id,
+            code=p.code,
+            track=p.track.value,
             level=p.level,
             name=p.spec.name,
             objective=p.spec.objective.value,

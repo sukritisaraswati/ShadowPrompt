@@ -29,11 +29,12 @@ const LIBRARY: PayloadLibrarySummary = {
   version: 1,
   total_tests: 85,
   levels: [
-    { level: 1, name: "Basic Jailbreak", category: "basic_override", danger: "Low", test_count: 20, available: true },
-    { level: 2, name: "Persona & Role Manipulation", category: "persona", danger: "Medium", test_count: 25, available: true },
-    { level: 3, name: "Adversarial Instruction Design", category: "adversarial", danger: "High", test_count: 40, available: true },
-    { level: 4, name: "Indirect Injection via Web Content", category: "indirect_injection", danger: "Very High", test_count: 0, available: false },
-    { level: 5, name: "Chained & Multi-Vector Attacks", category: "chained", danger: "Critical", test_count: 0, available: false },
+    { code: "D1", track: "direct", level: 1, name: "Basic Jailbreak", description: "", category: "basic_override", danger: "Low", test_count: 20, available: true },
+    { code: "D2", track: "direct", level: 2, name: "Persona & Role Manipulation", description: "", category: "persona", danger: "Medium", test_count: 25, available: true },
+    { code: "D3", track: "direct", level: 3, name: "Adversarial Instruction Design", description: "", category: "adversarial", danger: "High", test_count: 40, available: true },
+    { code: "D4", track: "direct", level: 4, name: "Multi-turn Escalation", description: "", category: "multi_turn", danger: "Very High", test_count: 4, available: true },
+    { code: "D5", track: "direct", level: 5, name: "Combined & Advanced Attacks", description: "", category: "combined", danger: "Critical", test_count: 0, available: true },
+    { code: "I1", track: "indirect", level: 1, name: "Hidden Page Instructions", description: "", category: "hidden_instruction", danger: "Medium", test_count: 8, available: true },
   ],
 };
 
@@ -42,7 +43,9 @@ const HOSTILE = `<img src=x onerror="window.__labPwned=true">As DAN, sure here i
 function result(overrides: Partial<TestResult>): TestResult {
   return {
     id: crypto.randomUUID(),
-    payload_id: "L1-001",
+    payload_id: "D1-001",
+    track: "direct",
+    code: "D1",
     level: 1,
     category: "basic_override",
     technique: "direct override",
@@ -63,7 +66,7 @@ function campaign(overrides: Partial<Campaign> = {}): Campaign {
   return {
     id: "c0ffee00-0000-4000-8000-000000000001",
     session: { id: "s1", provider: "openai_compatible", model_name: "gpt-4o-mini", endpoint_host: "api.openai.com" },
-    levels_run: [1],
+    levels_run: ["D1"],
     status: "completed",
     total_tests: 3,
     completed_tests: 3,
@@ -74,7 +77,7 @@ function campaign(overrides: Partial<Campaign> = {}): Campaign {
     config: { sample_size: null, timeout_seconds: 30, max_retries: 1 },
     error_message: null,
     current_level: null,
-    level_scores: [{ level: 1, name: "Basic Jailbreak", total: 3, passed: 1, partial: 1, failed: 1, unclear: 0, score: 50 }],
+    level_scores: [{ code: "D1", track: "direct", level: 1, name: "Basic Jailbreak", total: 3, passed: 1, partial: 1, failed: 1, unclear: 0, score: 50 }],
     results: [
       result({ verdict: "PASS" }),
       result({ verdict: "PARTIAL", name: "Disregard rules" }),
@@ -217,8 +220,10 @@ describe("Configure", () => {
     vi.spyOn(labApi, "getPayloadSummary").mockResolvedValue(LIBRARY);
     renderAt("/lab/configure", "/lab/configure", <Connected><Configure /></Connected>);
 
-    const levelFour = await screen.findByRole("checkbox", { name: /indirect injection/i });
-    expect(levelFour).toBeDisabled();
+    // A level with no tests yet cannot be chosen.
+    const empty = await screen.findByRole("checkbox", { name: /combined & advanced/i });
+    expect(empty).toBeDisabled();
+    expect(screen.getByRole("group", { name: /indirect prompt injection/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /start campaign \(20 tests\)/i })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("checkbox", { name: /persona/i }));
@@ -238,7 +243,7 @@ describe("Configure", () => {
 
     expect(await screen.findByText(/running page reached/i)).toBeInTheDocument();
     expect(start).toHaveBeenCalledWith("session-1", CONNECTION, {
-      levels: [1, 3],
+      levels: ["D1", "D3"],
       sampleSize: null,
       timeoutSeconds: 30,
       maxRetries: 1,
@@ -250,13 +255,13 @@ describe("Configure", () => {
   it("adds custom packs to the count and the request", async () => {
     vi.spyOn(labApi, "getPayloadSummary").mockResolvedValue(LIBRARY);
     vi.spyOn(labApi, "listPacks").mockResolvedValue([
-      { id: "pack-1", name: "Helpdesk <b>tests</b>", description: null, test_count: 3, level_counts: { "1": 2, "3": 1 }, created_at: "2026-10-02T10:00:00Z" },
+      { id: "pack-1", name: "Helpdesk <b>tests</b>", description: null, test_count: 3, level_counts: { D1: 2, D3: 1 }, created_at: "2026-10-02T10:00:00Z" },
     ]);
     const start = vi.spyOn(labApi, "startCampaign").mockResolvedValue({ campaign_id: "abc", status: "pending", total_tests: 22 });
     renderAt("/lab/configure", "/lab/configure", <Connected><Configure /></Connected>);
 
     // The pack name is user content and renders as plain text.
-    const pack = await screen.findByRole("checkbox", { name: "Helpdesk <b>tests</b> 3 tests at levels 1, 3" });
+    const pack = await screen.findByRole("checkbox", { name: "Helpdesk <b>tests</b> 3 tests at D1, D3" });
     expect(document.querySelector("b")).toBeNull();
     await userEvent.click(pack);
     // Level 1 only: 20 library tests plus the pack's 2 Level 1 tests.
@@ -270,8 +275,8 @@ describe("Configure", () => {
     vi.spyOn(labApi, "getPayloadSummary").mockResolvedValue({
       ...LIBRARY,
       languages: [
-        { code: "es", name: "Spanish", test_count: 4, level_counts: { "1": 1, "2": 1, "3": 1, "4": 1 } },
-        { code: "hi", name: "Hindi", test_count: 4, level_counts: { "1": 1, "2": 1, "3": 1, "4": 1 } },
+        { code: "es", name: "Spanish", test_count: 4, level_counts: { D1: 1, D2: 1, D3: 1, I3: 1 } },
+        { code: "hi", name: "Hindi", test_count: 4, level_counts: { D1: 1, D2: 1, D3: 1, I3: 1 } },
       ],
     });
     const start = vi.spyOn(labApi, "startCampaign").mockResolvedValue({ campaign_id: "abc", status: "pending", total_tests: 22 });
@@ -295,14 +300,14 @@ describe("Configure", () => {
 describe("Running", () => {
   it("shows progress and verdicts, and can stop the run", async () => {
     vi.spyOn(labApi, "getCampaign").mockResolvedValue(
-      campaign({ status: "running", total_tests: 20, completed_tests: 3, current_level: 1 }),
+      campaign({ status: "running", total_tests: 20, completed_tests: 3, current_level: "D1" }),
     );
     const stop = vi.spyOn(labApi, "stopCampaign").mockResolvedValue({});
     renderAt("/lab/running?campaign=abc", "/lab/running", <Running />);
 
     expect(await screen.findByText(/3 of 20 tests/i)).toBeInTheDocument();
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "15");
-    expect(screen.getByText(/now on level 1/i)).toBeInTheDocument();
+    expect(screen.getByText(/now on D1/i)).toBeInTheDocument();
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
 
     await userEvent.click(screen.getByRole("button", { name: /stop campaign/i }));

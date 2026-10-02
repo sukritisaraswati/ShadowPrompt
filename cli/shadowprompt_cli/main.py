@@ -32,14 +32,25 @@ PROVIDERS = ("openai_compatible", "anthropic", "gemini", "azure_openai")
 DEFAULT_KEY_ENV = "SHADOWPROMPT_LLM_API_KEY"
 
 
-def _levels(value: str) -> list[int]:
-    try:
-        levels = sorted({int(part) for part in value.split(",") if part.strip()})
-    except ValueError:
-        raise argparse.ArgumentTypeError("levels are numbers such as 1,2,3") from None
-    if not levels or any(level not in range(1, 6) for level in levels):
-        raise argparse.ArgumentTypeError("levels must be between 1 and 5")
-    return levels
+LEVEL_CODES = [f"{track}{n}" for track in "DI" for n in range(1, 6)]
+
+
+def _levels(value: str) -> list[str]:
+    """Level codes such as D1,D2,I1. Plain 1 to 3 still mean D1 to D3."""
+    codes = set()
+    for part in (p.strip().upper() for p in value.split(",")):
+        if not part:
+            continue
+        if part in {"1", "2", "3"}:
+            part = f"D{part}"
+        if part not in LEVEL_CODES:
+            raise argparse.ArgumentTypeError(
+                f"unknown level {part!r}: use D1 to D5 (direct) and I1 to I5 (indirect)"
+            )
+        codes.add(part)
+    if not codes:
+        raise argparse.ArgumentTypeError("choose at least one level, e.g. D1,D2,I1")
+    return [code for code in LEVEL_CODES if code in codes]
 
 
 def _codes(value: str) -> list[str]:
@@ -99,7 +110,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_KEY_ENV,
         help="environment variable holding the model API key (default %(default)s)",
     )
-    camp.add_argument("--levels", type=_levels, default=[1, 2, 3], help="e.g. 1,2,3 (default)")
+    camp.add_argument(
+        "--levels",
+        type=_levels,
+        default=["D1", "D2", "D3"],
+        help="level codes, e.g. D1,D2,I1 (default D1,D2,D3)",
+    )
     camp.add_argument("--sample-size", type=int, help="tests per level instead of all")
     camp.add_argument("--languages", type=_codes, default=[], help="language packs, e.g. es,hi")
     camp.add_argument(
@@ -221,7 +237,7 @@ def do_campaign(args: argparse.Namespace, client: Client) -> int:
         print(f"\n{args.model}: {score} ({outcome.rating or 'unrated'}), status {outcome.status}")
         for ls in outcome.level_scores:
             level_score = "-" if ls["score"] is None else f"{ls['score']:g}"
-            print(f"  Level {ls['level']} {ls['name']:40} {level_score}")
+            print(f"  {ls.get('code', ls['level'])} {ls['name']:40} {level_score}")
         if outcome.failures:
             print(f"\n{len(outcome.failures)} tests failed or partly failed:")
             for failure in outcome.failures[:20]:
@@ -240,7 +256,8 @@ def do_campaign(args: argparse.Namespace, client: Client) -> int:
         }
     )
     levels = "\n".join(
-        f"| {ls['level']} | {_cell(ls['name'])} | {'-' if ls['score'] is None else ls['score']} |"
+        f"| {ls.get('code', ls['level'])} | {_cell(ls['name'])} "
+        f"| {'-' if ls['score'] is None else ls['score']} |"
         for ls in outcome.level_scores
     )
     _github_summary(

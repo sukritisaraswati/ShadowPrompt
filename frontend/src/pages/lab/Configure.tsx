@@ -8,7 +8,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { toApiError } from "@/api/client";
 import { getPayloadSummary, listPacks, startCampaign } from "@/api/lab";
-import type { ApiError, PayloadLibrarySummary, PayloadPackSummary } from "@/api/types";
+import { ATTACK_TRACKS, compareLevelCodes, type ApiError, type PayloadLibrarySummary, type PayloadPackSummary, type Track } from "@/api/types";
 import ErrorAlert from "@/components/ErrorAlert";
 import { describeConnection, useSession } from "@/context/SessionContext";
 
@@ -19,7 +19,7 @@ export default function Configure() {
   const navigate = useNavigate();
   const { connection, isVerified, sessionId } = useSession();
   const [library, setLibrary] = useState<PayloadLibrarySummary | null>(null);
-  const [levels, setLevels] = useState<number[]>([1]);
+  const [levels, setLevels] = useState<string[]>(["D1"]);
   const [languages, setLanguages] = useState<string[]>([]);
   const [packs, setPacks] = useState<PayloadPackSummary[]>([]);
   const [packIds, setPackIds] = useState<string[]>([]);
@@ -50,15 +50,15 @@ export default function Configure() {
 
   const testCount = useMemo(() => {
     if (!library) return 0;
-    const atLevel = (p: { level_counts: Record<string, number> }, level: number) => p.level_counts[String(level)] ?? 0;
+    const atLevel = (p: { level_counts: Record<string, number> }, code: string) => p.level_counts[code] ?? 0;
     const languagePacks = (library.languages ?? []).filter((p) => languages.includes(p.code));
     const customPacks = packs.filter((p) => packIds.includes(p.id));
     return library.levels
-      .filter((l) => levels.includes(l.level))
+      .filter((l) => levels.includes(l.code))
       .reduce((sum, l) => {
-        const pool = l.test_count + languagePacks.reduce((n, p) => n + atLevel(p, l.level), 0);
+        const pool = l.test_count + languagePacks.reduce((n, p) => n + atLevel(p, l.code), 0);
         // Custom tests always run in full; only the library is sampled.
-        const custom = customPacks.reduce((n, p) => n + atLevel(p, l.level), 0);
+        const custom = customPacks.reduce((n, p) => n + atLevel(p, l.code), 0);
         return sum + (mode === "sample" ? Math.min(sampleSize, pool) : pool) + custom;
       }, 0);
   }, [library, levels, languages, packs, packIds, mode, sampleSize]);
@@ -78,9 +78,16 @@ export default function Configure() {
     );
   }
 
-  function toggle(level: number) {
+  function toggle(code: string) {
     setLevels((current) =>
-      current.includes(level) ? current.filter((l) => l !== level) : [...current, level].sort(),
+      current.includes(code) ? current.filter((l) => l !== code) : [...current, code].sort(compareLevelCodes),
+    );
+  }
+
+  function toggleTrack(track: Track, on: boolean) {
+    const codes = (library?.levels ?? []).filter((l) => l.track === track && l.available && l.test_count > 0).map((l) => l.code);
+    setLevels((current) =>
+      (on ? Array.from(new Set([...current, ...codes])) : current.filter((c) => !codes.includes(c))).sort(compareLevelCodes),
     );
   }
 
@@ -126,19 +133,31 @@ export default function Configure() {
       </p>
 
       <form onSubmit={onSubmit} className="mt-6 space-y-6">
-        <fieldset>
-          <legend className="text-sm font-semibold">Attack levels</legend>
-          {!library && !error && <p role="status" className="mt-2 text-sm text-slate-500">Loading the test library&hellip;</p>}
+        {!library && !error && <p role="status" className="text-sm text-slate-500">Loading the test library&hellip;</p>}
+        {ATTACK_TRACKS.map((track) => {
+          const trackLevels = (library?.levels ?? []).filter((l) => l.track === track.track);
+          if (!library) return null;
+          const runnable = trackLevels.filter((l) => l.available && l.test_count > 0);
+          const allOn = runnable.length > 0 && runnable.every((l) => levels.includes(l.code));
+          return (
+        <fieldset key={track.track}>
+          <legend className="flex w-full items-baseline gap-3 text-sm font-semibold">
+            {track.name}
+            <button type="button" onClick={() => toggleTrack(track.track, !allOn)} disabled={busy} className="text-xs font-normal text-accent-500 hover:underline">
+              {allOn ? "Clear" : "Select all"}
+            </button>
+          </legend>
+          <p className="mt-1 text-xs text-slate-500">{track.summary}</p>
           <ul className="mt-2 space-y-2">
-            {library?.levels.map((l) => (
-              <li key={l.level}>
+            {trackLevels.map((l) => (
+              <li key={l.code}>
                 <label
                   className={`flex items-center gap-3 rounded-md border px-3 py-2 text-sm ${
                     l.available ? "border-slate-200 dark:border-slate-800" : "border-dashed border-slate-300 opacity-60 dark:border-slate-700"
                   }`}
                 >
-                  <input type="checkbox" checked={levels.includes(l.level)} disabled={!l.available || busy} onChange={() => toggle(l.level)} />
-                  <span className="w-5 font-bold text-accent-500">{l.level}</span>
+                  <input type="checkbox" checked={levels.includes(l.code)} disabled={!l.available || l.test_count === 0 || busy} onChange={() => toggle(l.code)} />
+                  <span className="w-6 font-bold text-accent-500">{l.code}</span>
                   <span className="flex-1 font-medium">{l.name}</span>
                   <span className="text-xs text-slate-500">
                     {l.available ? `${l.test_count} tests · ${l.danger} danger` : "Arrives in Release 3"}
@@ -148,6 +167,8 @@ export default function Configure() {
             ))}
           </ul>
         </fieldset>
+          );
+        })}
 
         {library?.languages && library.languages.length > 0 && (
           <fieldset>
@@ -206,8 +227,7 @@ export default function Configure() {
                       <input type="checkbox" checked={packIds.includes(pack.id)} onChange={() => togglePack(pack.id)} disabled={busy} />
                       <span className="flex-1 font-medium">{pack.name}</span>
                       <span className="text-xs text-slate-500">
-                        {pack.test_count} {pack.test_count === 1 ? "test" : "tests"} at level
-                        {Object.keys(pack.level_counts).length === 1 ? " " : "s "}
+                        {pack.test_count} {pack.test_count === 1 ? "test" : "tests"} at{" "}
                         {Object.keys(pack.level_counts).join(", ")}
                       </span>
                     </label>

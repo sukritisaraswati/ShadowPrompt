@@ -111,7 +111,7 @@ def test_a_campaign_runs_against_a_local_model(client, use_model, self_hosted) -
     session = client.post("/api/v1/lab/connect/test", json=connection).json()["session_id"]
     started = client.post(
         "/api/v1/lab/campaigns",
-        json={"session_id": session, "connection": connection, "levels": [1], "sample_size": 3},
+        json={"session_id": session, "connection": connection, "levels": ["D1"], "sample_size": 3},
     )
     assert started.status_code == 202
     result = wait_done(client, started.json()["campaign_id"])

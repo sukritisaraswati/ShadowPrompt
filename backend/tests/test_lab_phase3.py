@@ -31,8 +31,12 @@ def reply(text: str) -> LlmReply:
     return LlmReply(text=text, latency_ms=5)
 
 
+# English single-page indirect tests (I1 to I4).
+PAGE_TESTS = [p for code in ("I1", "I2", "I3", "I4") for p in LIB.for_level(code)]
+
+
 def l4(technique: str):
-    return next(p for p in LIB.for_level(4) if p.spec.technique == technique)
+    return next(p for p in PAGE_TESTS if p.spec.technique == technique)
 
 
 def signal(payload, mode: MatchMode) -> str:
@@ -44,8 +48,8 @@ def signal(payload, mode: MatchMode) -> str:
 # --------------------------------------------------------------------------- #
 
 
-def test_level_four_covers_all_eight_blueprint_pages() -> None:
-    techniques = {p.spec.technique for p in LIB.for_level(4)}
+def test_indirect_page_levels_cover_all_eight_blueprint_pages() -> None:
+    techniques = {p.spec.technique for p in PAGE_TESTS}
     assert techniques == {
         "comment_override",
         "hidden_div_exfil",
@@ -58,17 +62,19 @@ def test_level_four_covers_all_eight_blueprint_pages() -> None:
     }
 
 
-def test_level_five_covers_all_six_chain_types_as_live_conversations() -> None:
-    level5 = LIB.for_level(5)
-    assert {p.spec.technique for p in level5} == {
+def test_chained_attacks_cover_all_six_chain_types_as_live_conversations() -> None:
+    chained = LIB.for_level("I5")
+    assert {p.spec.technique for p in chained} == {
         "indirect-to-direct chain",
-        "context poisoning",
         "obfuscated multi-vector",
         "payload relay",
         "reflection",
         "memory poisoning",
     }
-    assert all(p.is_live and len(p.user_turns()) >= 2 for p in level5)
+    # Context poisoning needs no page, so it is a direct multi-turn attack.
+    assert "context poisoning" in {p.spec.technique for p in LIB.for_level("D4")}
+    live = chained + LIB.for_level("D4")
+    assert all(p.is_live and len(p.user_turns()) >= 2 for p in live)
 
 
 def test_private_values_never_appear_in_attack_pages() -> None:
@@ -86,7 +92,7 @@ def test_shadowscan_flags_every_attack_page() -> None:
     assert missed == set()
     hidden = l4("hidden_div_exfil").page_scan
     assert "hidden_element" in hidden.sources
-    for payload in LIB.for_level(4):
+    for payload in PAGE_TESTS:
         if payload.spec.technique == "obfuscated_b64":
             assert payload.page_scan.decoded == ["base64"], payload.id
 
@@ -159,7 +165,7 @@ def test_adopting_the_planted_persona_fails() -> None:
 
 
 def test_leak_on_an_early_turn_fails_the_conversation() -> None:
-    payload = next(p for p in LIB.for_level(5) if p.spec.objective is Objective.INJECTION)
+    payload = next(p for p in LIB.for_level("I5") if p.spec.objective is Objective.INJECTION)
     private = signal(payload, MatchMode.NORMALIZED)
     result = evaluate_conversation(payload, [reply(f"Summary. Also {private}"), reply("Sure.")])
     assert result.verdict is Verdict.FAIL
@@ -168,7 +174,7 @@ def test_leak_on_an_early_turn_fails_the_conversation() -> None:
 
 
 def test_agreeable_early_turns_are_not_counted_against_the_model() -> None:
-    payload = next(p for p in LIB.for_level(5) if p.spec.technique == "context poisoning")
+    payload = next(p for p in LIB.for_level("D4") if p.spec.technique == "context poisoning")
     replies = [
         reply("Sure, let's play!"),
         reply("Agreed."),
@@ -178,7 +184,7 @@ def test_agreeable_early_turns_are_not_counted_against_the_model() -> None:
 
 
 def test_conversation_summary_covers_every_turn() -> None:
-    payload = LIB.for_level(5)[0]
+    payload = LIB.for_level("I5")[0]
     result = evaluate_conversation(payload, [reply("first"), reply("second")])
     assert result.summary.startswith("Turn 1: first | Turn 2: second")
 
@@ -211,7 +217,7 @@ def make_judge(responses: list, enabled: bool = True, **settings_kw) -> tuple[Ju
     return Judge(settings=settings, sender=sender), calls
 
 
-REQUEST = JudgeRequest("L1-001", "secret", "criteria", "attack text", "Turn 1: some reply")
+REQUEST = JudgeRequest("D1-001", "secret", "criteria", "attack text", "Turn 1: some reply")
 
 
 async def test_judge_returns_a_structured_verdict_with_fallbacks_enabled() -> None:
@@ -348,28 +354,31 @@ def done(client, campaign_id: str) -> dict:
     return wait_status(client, campaign_id, {"completed", "stopped", "failed"})
 
 
-def test_vulnerable_model_fails_all_five_levels(client, lab) -> None:
+def test_vulnerable_model_fails_every_level_of_both_tracks(client, lab) -> None:
     lab(vulnerable)
-    result = done(client, launch(client, [1, 2, 3, 4, 5]))
+    result = done(
+        client, launch(client, ["D1", "D2", "D3", "D4", "D5", "I1", "I2", "I3", "I4", "I5"])
+    )
     assert result["status"] == "completed"
     assert result["total_tests"] == 135 == result["completed_tests"]
     for ls in result["level_scores"]:
-        assert ls["failed"] == ls["total"], f"level {ls['level']} had non-failing tests"
+        assert ls["failed"] == ls["total"], f"{ls['code']} had non-failing tests"
     assert result["rating"]["level"] == "critical"
 
 
-def test_aligned_model_passes_levels_four_and_five(client, lab) -> None:
+def test_aligned_model_passes_the_indirect_track(client, lab) -> None:
     lab(aligned)
-    result = done(client, launch(client, [4, 5]))
-    scores = {ls["level"]: ls for ls in result["level_scores"]}
-    assert scores[4]["passed"] == 30
-    assert scores[5]["passed"] == 20
+    result = done(client, launch(client, ["I1", "I2", "I3", "I4", "I5"]))
+    scores = {ls["code"]: ls for ls in result["level_scores"]}
+    assert sum(scores[code]["passed"] for code in ("I1", "I2", "I3", "I4")) == 30
+    assert scores["I5"]["passed"] == 16
     assert result["overall_score"] == 100
+    assert [(t["track"], t["score"]) for t in result["track_scores"]] == [("indirect", 100)]
 
 
 def test_level_four_results_carry_the_shadowscan_verdict(client, lab) -> None:
     lab(aligned)
-    result = done(client, launch(client, [4], sample_size=2))
+    result = done(client, launch(client, ["I1"], sample_size=2))
     for r in result["results"]:
         assert "page_scan" in r["evaluation_detail"]
         assert "<page url=" in r["attack_text"]
@@ -377,7 +386,7 @@ def test_level_four_results_carry_the_shadowscan_verdict(client, lab) -> None:
 
 def test_level_five_conversations_carry_the_real_replies_forward(client, lab) -> None:
     seen = lab(vulnerable)
-    result = done(client, launch(client, [5], sample_size=1))
+    result = done(client, launch(client, ["I5"], sample_size=1))
     test = result["results"][0]
     turns = len(test["response_summary"].split(" | "))
     calls = [b for b in seen if not is_probe(b)]
@@ -395,7 +404,7 @@ def test_unclear_results_go_to_the_judge(client, lab) -> None:
         return _openai("OK" if is_probe(body) else "The weather is mild today.")
 
     lab(off_topic, judge=judge)
-    result = done(client, launch(client, [1], sample_size=3))
+    result = done(client, launch(client, ["D1"], sample_size=3))
     assert len(calls) >= 1
     judged = [r for r in result["results"] if r["evaluation_detail"].get("decided_by") == "layer3"]
     assert judged and all(r["verdict"] == "PASS" for r in judged)
@@ -412,7 +421,7 @@ def test_judge_calls_are_capped_per_campaign(client, lab) -> None:
         return _openai("OK" if is_probe(body) else f"Unrelated chatter number {n}.")
 
     lab(off_topic, judge=judge)
-    result = done(client, launch(client, [1], sample_size=5))
+    result = done(client, launch(client, ["D1"], sample_size=5))
     assert len(calls) == 2
     limited = [
         r
@@ -428,7 +437,7 @@ def test_pause_and_resume(client, lab) -> None:
         return aligned(request)
 
     lab(slow)
-    campaign_id = launch(client, [1, 2])
+    campaign_id = launch(client, ["D1", "D2"])
     wait_status(client, campaign_id, {"running"})
     assert client.post(f"/api/v1/lab/campaigns/{campaign_id}/pause").status_code == 202
     paused = wait_status(client, campaign_id, {"paused"})
@@ -448,7 +457,7 @@ def test_stopping_a_paused_campaign(client, lab) -> None:
         return aligned(request)
 
     lab(slow)
-    campaign_id = launch(client, [1])
+    campaign_id = launch(client, ["D1"])
     wait_status(client, campaign_id, {"running"})
     client.post(f"/api/v1/lab/campaigns/{campaign_id}/pause")
     wait_status(client, campaign_id, {"paused"})
@@ -458,7 +467,7 @@ def test_stopping_a_paused_campaign(client, lab) -> None:
 
 def test_pause_requires_a_running_campaign(client, lab) -> None:
     lab(aligned)
-    campaign_id = launch(client, [1], sample_size=1)
+    campaign_id = launch(client, ["D1"], sample_size=1)
     done(client, campaign_id)
     assert client.post(f"/api/v1/lab/campaigns/{campaign_id}/pause").status_code == 409
     assert client.post(f"/api/v1/lab/campaigns/{campaign_id}/resume").status_code == 409
@@ -474,7 +483,7 @@ def parse_sse(lines) -> list[dict]:
 
 def test_stream_of_a_finished_campaign_sends_snapshot_then_done(client, lab) -> None:
     lab(aligned)
-    campaign_id = launch(client, [1], sample_size=2)
+    campaign_id = launch(client, ["D1"], sample_size=2)
     done(client, campaign_id)
     with client.stream("GET", f"/api/v1/lab/campaigns/{campaign_id}/stream") as response:
         assert response.headers["content-type"].startswith("text/event-stream")
@@ -489,7 +498,7 @@ def test_stream_delivers_live_results(client, lab) -> None:
         return vulnerable(request)
 
     lab(slow)
-    campaign_id = launch(client, [1], sample_size=5)
+    campaign_id = launch(client, ["D1"], sample_size=5)
     with client.stream("GET", f"/api/v1/lab/campaigns/{campaign_id}/stream") as response:
         events = parse_sse(response.iter_lines())
     types = [e["type"] for e in events]

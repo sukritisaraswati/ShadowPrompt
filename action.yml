@@ -51,9 +51,9 @@ inputs:
     required: false
     default: ""
   levels:
-    description: "campaign: attack levels, e.g. 1,2,3"
+    description: "campaign: level codes, e.g. D1,D2,I1 (D = direct, I = indirect)"
     required: false
-    default: "1,2,3"
+    default: "D1,D2,D3"
   sample-size:
     description: "campaign: tests per level instead of all"
     required: false

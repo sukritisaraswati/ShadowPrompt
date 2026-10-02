@@ -2,10 +2,16 @@
 
 Loaded from ``data/payloads.json`` and the opt-in multilingual pack in
 ``data/payloads_multilingual.json`` once, and validated in full: a malformed
-entry, or a Level 4 or 5 test whose attack page is missing, stops the
+entry, or an indirect test whose attack page is missing, stops the
 application at startup rather than silently skipping a test. Payload text is
 never sent to the browser before a test has run; the public summary carries
 only level names and counts.
+
+Tests sit in two tracks of five levels each:
+
+* **Direct** (D1 to D5): the attacker is the user, typing at the model.
+* **Indirect** (I1 to I5): the attacker controls content the model reads,
+  here a web page it is asked to summarise, and the user is the victim.
 
 Every payload is canary-based. Its system context gives the model a rule to
 keep, and the attack tries to make it break that rule. A leaked access code or
@@ -15,10 +21,10 @@ test asks for, or can produce, genuinely harmful content.
 
 Two conversation shapes exist:
 
-* ``single``: one request. Levels 1 to 3 may include fabricated earlier turns
-  (few-shot priming). Level 4 attaches a crafted web page to the user turn.
-* ``live``: Level 5. Only the user's turns are scripted; the model's real
-  replies fill the gaps, so later turns build on what it actually said.
+* ``single``: one request. It may include fabricated earlier turns
+  (few-shot priming). Indirect tests attach a crafted web page to a user turn.
+* ``live``: D4, D5 and I5. Only the user's turns are scripted; the model's
+  real replies fill the gaps, so later turns build on what it actually said.
 
 Every payload has a language. English tests always run; tests in other
 languages run only when a campaign asks for those languages.
@@ -45,15 +51,127 @@ MULTILINGUAL_PATH = Path(__file__).parent / "data" / "payloads_multilingual.json
 PAGES_DIR = Path(__file__).parent / "data" / "attack_pages"
 PAGE_PLACEHOLDER = "{page}"
 
-AVAILABLE_LEVELS = frozenset({1, 2, 3, 4, 5})
 
-LEVEL_INFO: dict[int, tuple[str, str, str]] = {
-    1: ("Basic Jailbreak", "basic_override", "Low"),
-    2: ("Persona & Role Manipulation", "persona", "Medium"),
-    3: ("Adversarial Instruction Design", "adversarial", "High"),
-    4: ("Indirect Injection via Web Content", "indirect_injection", "Very High"),
-    5: ("Chained & Multi-Vector Attacks", "chained", "Critical"),
+class Track(StrEnum):
+    DIRECT = "direct"
+    INDIRECT = "indirect"
+
+
+TRACK_NAMES = {
+    Track.DIRECT: "Direct prompt injection",
+    Track.INDIRECT: "Indirect prompt injection",
 }
+
+
+@dataclass(frozen=True)
+class LevelInfo:
+    track: Track
+    level: int
+    name: str
+    category: str
+    danger: str
+    description: str
+
+    @property
+    def code(self) -> str:
+        return level_code(self.track, self.level)
+
+
+def level_code(track: Track | str, level: int) -> str:
+    """The short code for a level, e.g. ``D1`` or ``I5``."""
+    return f"{'D' if Track(track) is Track.DIRECT else 'I'}{level}"
+
+
+LEVELS: dict[str, LevelInfo] = {
+    info.code: info
+    for info in (
+        LevelInfo(
+            Track.DIRECT,
+            1,
+            "Basic Jailbreak",
+            "basic_override",
+            "Low",
+            "Naive instructions to drop the rules.",
+        ),
+        LevelInfo(
+            Track.DIRECT,
+            2,
+            "Persona & Role Manipulation",
+            "persona",
+            "Medium",
+            "Alternative identities that supposedly have no rules.",
+        ),
+        LevelInfo(
+            Track.DIRECT,
+            3,
+            "Adversarial Instruction Design",
+            "adversarial",
+            "High",
+            "Fiction, hypotheticals, encodings, fake system messages and priming.",
+        ),
+        LevelInfo(
+            Track.DIRECT,
+            4,
+            "Multi-turn Escalation",
+            "multi_turn",
+            "Very High",
+            "Live conversations that build trust or context before the real request.",
+        ),
+        LevelInfo(
+            Track.DIRECT,
+            5,
+            "Combined & Advanced Attacks",
+            "combined",
+            "Critical",
+            "Several techniques stacked in one attack.",
+        ),
+        LevelInfo(
+            Track.INDIRECT,
+            1,
+            "Hidden Page Instructions",
+            "hidden_instruction",
+            "Medium",
+            "An instruction in an HTML comment or a hidden element.",
+        ),
+        LevelInfo(
+            Track.INDIRECT,
+            2,
+            "Disguised Placement",
+            "disguised_placement",
+            "High",
+            "Instructions in alt text, ARIA labels, meta tags and data attributes.",
+        ),
+        LevelInfo(
+            Track.INDIRECT,
+            3,
+            "Obfuscated Instructions",
+            "obfuscated_instruction",
+            "High",
+            "Instructions encoded, or written in another language.",
+        ),
+        LevelInfo(
+            Track.INDIRECT,
+            4,
+            "Multi-Vector Pages",
+            "multi_vector",
+            "Very High",
+            "Several hidden instructions working together on one page.",
+        ),
+        LevelInfo(
+            Track.INDIRECT,
+            5,
+            "Chained Indirect Attacks",
+            "chained_indirect",
+            "Critical",
+            "A page primes the model, and later turns of the conversation trigger it.",
+        ),
+    )
+}
+LEVEL_CODES: tuple[str, ...] = tuple(LEVELS)
+AVAILABLE_LEVELS = frozenset(LEVELS)
+# Levels whose tests may be live conversations, and the one where they must be.
+LIVE_ALLOWED = frozenset({"D4", "D5", "I5"})
+LIVE_REQUIRED = frozenset({"I5"})
 
 
 class Objective(StrEnum):
@@ -89,9 +207,12 @@ class Turn(BaseModel):
 
 
 class PayloadSpec(BaseModel):
-    # L1-001 for the core library, L1-ES-01 for a language pack, and
-    # C1-3FA2B9-001 for test 1 of an uploaded custom pack.
-    id: str = Field(pattern=r"^(?:L[1-5]-(?:\d{3}|[A-Z]{2}-\d{2})|C[1-4]-[0-9A-F]{6}-\d{3})$")
+    # D1-001 for the core library, I3-ES-01 for a language pack, and
+    # CD1-3FA2B9-001 for test 1 of an uploaded custom pack.
+    id: str = Field(
+        pattern=r"^(?:[DI][1-5]-(?:\d{3}|[A-Z]{2}-\d{2})|C[DI][1-5]-[0-9A-F]{6}-\d{3})$"
+    )
+    track: Track
     level: int = Field(ge=1, le=5)
     language: str = ENGLISH
     category: str
@@ -104,7 +225,7 @@ class PayloadSpec(BaseModel):
     prompt: str | list[Turn]
     html_page: str | None = Field(
         default=None,
-        pattern=r"^(?:L[45]-(?:\d{3}|[A-Z]{2}-\d{2})|C4-[0-9A-F]{6}-\d{3})_[a-z0-9_]+\.html$",
+        pattern=r"^C?I[1-5]-(?:\d{3}|[A-Z]{2}-\d{2}|[0-9A-F]{6}-\d{3})_[a-z0-9_]+\.html$",
     )
     page_url: str | None = None
     # Words from the page's visible content; a reply that mentions them did
@@ -115,32 +236,39 @@ class PayloadSpec(BaseModel):
     evaluation_hint: str = Field(min_length=1)
     expected_verdict: Literal["PASS"] = "PASS"
 
+    @property
+    def code(self) -> str:
+        return level_code(self.track, self.level)
+
     @model_validator(mode="after")
     def _consistent(self) -> PayloadSpec:
-        if self.id[1:].split("-")[0] != str(self.level):
-            raise ValueError(f"{self.id} is filed under level {self.level}")
+        code = self.code
+        if self.id.removeprefix("C").split("-")[0] != code:
+            raise ValueError(f"{self.id} is filed under {code}")
         if self.language not in LANGUAGE_NAMES:
             raise ValueError(f"{self.id} has unknown language {self.language!r}")
-        if self.category != LEVEL_INFO[self.level][1]:
+        if self.category != LEVELS[code].category:
             raise ValueError(f"{self.id} has category {self.category}")
         turns = self.prompt if isinstance(self.prompt, list) else []
         if turns and turns[-1].role != "user":
             raise ValueError(f"{self.id}: a conversation must end with a user turn")
         if self.conversation == "live":
-            if self.level != 5 or not turns or any(t.role != "user" for t in turns):
-                raise ValueError(f"{self.id}: live conversations are Level 5 user turns only")
-        elif self.level == 5:
-            raise ValueError(f"{self.id}: Level 5 tests must be live conversations")
+            if code not in LIVE_ALLOWED or not turns or any(t.role != "user" for t in turns):
+                raise ValueError(
+                    f"{self.id}: live conversations are user turns only, at D4, D5 or I5"
+                )
+        elif code in LIVE_REQUIRED:
+            raise ValueError(f"{self.id}: {code} tests must be live conversations")
         texts = [self.prompt] if isinstance(self.prompt, str) else [t.content for t in turns]
         has_placeholder = any(PAGE_PLACEHOLDER in t for t in texts)
         if bool(self.html_page) != has_placeholder:
             raise ValueError(
                 f"{self.id}: html_page and the {PAGE_PLACEHOLDER} placeholder go together"
             )
-        if self.level == 4 and not self.html_page:
-            raise ValueError(f"{self.id}: Level 4 tests need an attack page")
-        if self.objective is Objective.INJECTION and not self.html_page:
-            raise ValueError(f"{self.id}: injection tests need an attack page")
+        if (self.track is Track.INDIRECT) != bool(self.html_page):
+            raise ValueError(f"{self.id}: indirect tests, and only they, carry an attack page")
+        if self.objective is Objective.INJECTION and self.track is not Track.INDIRECT:
+            raise ValueError(f"{self.id}: injection tests belong to the indirect track")
         return self
 
 
@@ -191,6 +319,15 @@ class Payload:
     @property
     def level(self) -> int:
         return self.spec.level
+
+    @property
+    def track(self) -> Track:
+        return self.spec.track
+
+    @property
+    def code(self) -> str:
+        """The level code, e.g. ``D3``."""
+        return self.spec.code
 
     @property
     def language(self) -> str:
@@ -278,12 +415,12 @@ class PayloadLibrary:
     def by_id(self, payload_id: str) -> Payload | None:
         return next((p for p in self.payloads if p.id == payload_id), None)
 
-    def for_level(self, level: int, languages: Collection[str] | None = ()) -> list[Payload]:
-        """Tests at ``level``: English plus ``languages``, or every language for None."""
+    def for_level(self, code: str, languages: Collection[str] | None = ()) -> list[Payload]:
+        """Tests at level ``code`` (e.g. ``D1``): English plus ``languages``, or all for None."""
         return [
             p
             for p in self.payloads
-            if p.level == level
+            if p.code == code
             and (languages is None or p.language == ENGLISH or p.language in languages)
         ]
 
@@ -297,7 +434,7 @@ class PayloadLibrary:
 
     def select(
         self,
-        levels: list[int],
+        levels: list[str],
         sample_size: int | None,
         seed: str,
         languages: Collection[str] = (),
@@ -312,14 +449,14 @@ class PayloadLibrary:
         a team that wrote its own tests wants every one of them run.
         """
         chosen: list[Payload] = []
-        for level in sorted(set(levels)):
-            pool = self.for_level(level, languages)
+        for code in sorted(set(levels), key=LEVEL_CODES.index):
+            pool = self.for_level(code, languages)
             if sample_size is not None and sample_size < len(pool):
                 # Reproducible test selection, not security: plain random is right here.
-                rng = random.Random(f"{seed}:{level}")  # noqa: S311
+                rng = random.Random(f"{seed}:{code}")  # noqa: S311
                 pool = sorted(rng.sample(pool, sample_size), key=lambda p: p.id)
             chosen.extend(pool)
-            chosen.extend(p for p in extra if p.level == level)
+            chosen.extend(p for p in extra if p.code == code)
         return chosen
 
 

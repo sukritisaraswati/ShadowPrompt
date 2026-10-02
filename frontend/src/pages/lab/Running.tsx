@@ -28,7 +28,7 @@ function applyEvent(current: Campaign | null, event: CampaignEvent): Campaign | 
       ...current,
       results: [...current.results, event.result],
       completed_tests: current.completed_tests + 1,
-      current_level: event.result.level,
+      current_level: event.result.code,
     };
   }
   if (event.type === "status") return { ...current, status: event.status };
@@ -196,7 +196,7 @@ export default function Running() {
         <>
           <p className="text-sm text-slate-600 dark:text-slate-300">
             {campaign.session.model_name} &middot; levels {campaign.levels_run.join(", ")}
-            {campaign.current_level ? ` · now on level ${campaign.current_level}` : ""}
+            {campaign.current_level ? ` · now on ${campaign.current_level}` : ""}
             {paused ? " · paused" : ""}
           </p>
 
@@ -235,7 +235,7 @@ export default function Running() {
             {[...campaign.results].reverse().map((r) => (
               <li key={r.id} className="flex items-center gap-3 px-3 py-2 text-sm">
                 <VerdictBadge verdict={r.verdict} />
-                <span className="w-14 shrink-0 text-xs text-slate-500">Level {r.level}</span>
+                <span className="w-10 shrink-0 text-xs text-slate-500">{r.code}</span>
                 <span className="flex-1">{r.name}</span>
                 <span className="text-xs text-slate-500">{r.technique}</span>
               </li>

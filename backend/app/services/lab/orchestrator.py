@@ -163,6 +163,7 @@ async def _record(campaign_id: uuid.UUID, payload: Payload, **values: object) ->
     async with get_sessionmaker()() as db:
         row = TestResult(
             campaign_id=campaign_id,
+            track=payload.track.value,
             level=payload.level,
             category=payload.spec.category,
             payload_id=payload.id,
@@ -190,15 +191,17 @@ async def finalize(
             return
         rows = (
             await db.execute(
-                select(TestResult.level, TestResult.verdict).where(
+                select(TestResult.track, TestResult.level, TestResult.verdict).where(
                     TestResult.campaign_id == campaign_id
                 )
             )
         ).all()
-        by_level: dict[int, list[Verdict]] = {}
-        for level, verdict in rows:
-            by_level.setdefault(level, []).append(verdict)
-        scores = [level_score(level, by_level[level]) for level in sorted(by_level)]
+        by_level: dict[tuple[str, int], list[Verdict]] = {}
+        for track, level, verdict in rows:
+            by_level.setdefault((track, level), []).append(verdict)
+        # Direct before indirect, then by level.
+        keys = sorted(by_level, key=lambda key: (key[0] != "direct", key[1]))
+        scores = [level_score(track, level, by_level[(track, level)]) for track, level in keys]
 
         campaign.status = status
         campaign.completed_at = datetime.now(UTC)

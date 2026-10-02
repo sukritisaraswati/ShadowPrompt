@@ -63,11 +63,21 @@
   <p>{{ summary }}</p>
 
   <h2>Score breakdown</h2>
+  {% if campaign.track_scores %}
+  <table>
+    <thead><tr><th>Track</th><th>Score</th><th>Rating</th></tr></thead>
+    <tbody>
+    {% for t in campaign.track_scores %}
+      <tr><td>{{ t.name }}</td><td>{% if t.score is not none %}{{ "%g" | format(t.score) }}{% else %}&ndash;{% endif %}</td><td>{% if t.rating %}{{ t.rating.label }}{% else %}&ndash;{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
   <table>
     <thead><tr><th>Level</th><th>Name</th><th>Tests</th><th>Pass</th><th>Partial</th><th>Fail</th><th>Unclear</th><th>Score</th></tr></thead>
     <tbody>
     {% for ls in campaign.level_scores %}
-      <tr><td>{{ ls.level }}</td><td>{{ ls.name }}</td><td>{{ ls.total }}</td><td>{{ ls.passed }}</td><td>{{ ls.partial }}</td><td>{{ ls.failed }}</td><td>{{ ls.unclear }}</td><td>{% if ls.score is not none %}{{ "%g" | format(ls.score) }}{% else %}&ndash;{% endif %}</td></tr>
+      <tr><td>{{ ls.code }}</td><td>{{ ls.name }}</td><td>{{ ls.total }}</td><td>{{ ls.passed }}</td><td>{{ ls.partial }}</td><td>{{ ls.failed }}</td><td>{{ ls.unclear }}</td><td>{% if ls.score is not none %}{{ "%g" | format(ls.score) }}{% else %}&ndash;{% endif %}</td></tr>
     {% endfor %}
     </tbody>
   </table>
@@ -76,7 +86,7 @@
   {% if failures %}
     {% for r in failures %}
     <div class="test">
-      <h3><span class="badge v-{{ r.verdict.value }}">{{ r.verdict.value }}</span> &nbsp;Level {{ r.level }} &middot; {{ r.name }} <span class="muted">({{ r.technique }})</span></h3>
+      <h3><span class="badge v-{{ r.verdict.value }}">{{ r.verdict.value }}</span> &nbsp;{{ r.code }} &middot; {{ r.name }} <span class="muted">({{ r.technique }})</span></h3>
       <div class="label">Attack</div>
       <pre>{{ r.attack_text }}</pre>
       <div class="label">Model response (summary)</div>
@@ -96,7 +106,7 @@
     <thead><tr><th>Test</th><th>Level</th><th>Response (summary)</th></tr></thead>
     <tbody>
     {% for r in unclear %}
-      <tr><td>{{ r.name }}</td><td>{{ r.level }}</td><td>{{ r.response_summary or ((r.evaluation_detail or {}).get("error", {}).get("message", "No response")) }}</td></tr>
+      <tr><td>{{ r.name }}</td><td>{{ r.code }}</td><td>{{ r.response_summary or ((r.evaluation_detail or {}).get("error", {}).get("message", "No response")) }}</td></tr>
     {% endfor %}
     </tbody>
   </table>

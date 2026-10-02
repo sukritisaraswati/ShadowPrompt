@@ -187,7 +187,7 @@ jobs:
           server-url: http://127.0.0.1:8000
           base-url: http://127.0.0.1:9000/v1
           model: stub-aligned
-          levels: "1,2"
+          levels: "D1,D2"
           sample-size: "3"
           min-score: "90"
           report: reports/campaign.html

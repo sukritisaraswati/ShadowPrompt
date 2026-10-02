@@ -42,7 +42,8 @@ export function testConnection(
 }
 
 export interface CampaignOptions {
-  levels: number[];
+  /** Level codes, e.g. ["D1", "I1"]. */
+  levels: string[];
   sampleSize: number | null;
   timeoutSeconds: number;
   maxRetries: number;

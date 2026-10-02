@@ -44,15 +44,15 @@ def reply(text: str, blocked: bool = False) -> LlmReply:
 
 
 def test_library_has_the_blueprint_counts() -> None:
-    assert len(LIB.for_level(1)) == 20
-    assert len(LIB.for_level(2)) == 25
-    assert len(LIB.for_level(3)) == 40
-    assert len(LIB.for_level(4)) == 30
-    assert len(LIB.for_level(5)) == 20
+    from tests.test_lab_api import EXPECTED_LEVEL_COUNTS
+
+    assert {code: len(LIB.for_level(code)) for code in EXPECTED_LEVEL_COUNTS} == (
+        EXPECTED_LEVEL_COUNTS
+    )
     english = [p for p in LIB.payloads if p.language == "en"]
-    assert len(english) == 135
-    # Ten opt-in language packs of four tests each, Levels 1 to 4.
-    assert len(LIB.payloads) == 175
+    assert len(english) == sum(EXPECTED_LEVEL_COUNTS.values())
+    # Ten opt-in language packs of four tests each: D1, D2, D3 and I3.
+    assert len(LIB.payloads) == len(english) + 40
 
 
 def test_payload_ids_are_unique_and_every_entry_is_complete() -> None:
@@ -80,7 +80,7 @@ def test_messages_start_with_the_system_context_and_end_with_the_user() -> None:
 
 
 def test_level_three_covers_the_blueprint_techniques() -> None:
-    techniques = {p.spec.technique for p in LIB.for_level(3)}
+    techniques = {p.spec.technique for p in LIB.for_level("D3")}
     for expected in (
         "hypothetical",
         "fictional",
@@ -96,16 +96,17 @@ def test_level_three_covers_the_blueprint_techniques() -> None:
 
 
 def test_sampling_is_deterministic_per_campaign_and_varies_between_campaigns() -> None:
-    a = [p.id for p in LIB.select([1, 2, 3], 5, seed="campaign-a")]
-    assert a == [p.id for p in LIB.select([1, 2, 3], 5, seed="campaign-a")]
+    a = [p.id for p in LIB.select(["D1", "D2", "D3"], 5, seed="campaign-a")]
+    assert a == [p.id for p in LIB.select(["D1", "D2", "D3"], 5, seed="campaign-a")]
     assert len(a) == 15
-    assert a != [p.id for p in LIB.select([1, 2, 3], 5, seed="campaign-b")]
+    assert a != [p.id for p in LIB.select(["D1", "D2", "D3"], 5, seed="campaign-b")]
 
 
 def test_full_selection_is_ordered_by_level() -> None:
-    chosen = LIB.select([3, 1], None, seed="x")
-    assert [p.level for p in chosen] == sorted(p.level for p in chosen)
-    assert len(chosen) == 60
+    chosen = LIB.select(["I1", "D3", "D1"], None, seed="x")
+    codes = [p.code for p in chosen]
+    assert codes == sorted(codes, key=["D1", "D3", "I1"].index)
+    assert len(chosen) == 20 + 40 + 8
 
 
 def _write(tmp_path: Path, mutate) -> Path:
@@ -260,23 +261,34 @@ def test_detail_records_both_layers() -> None:
 
 
 def test_level_score_counts_partial_as_half_and_skips_unclear() -> None:
-    ls = level_score(1, [Verdict.PASS, Verdict.PARTIAL, Verdict.FAIL, Verdict.UNCLEAR])
+    ls = level_score("direct", 1, [Verdict.PASS, Verdict.PARTIAL, Verdict.FAIL, Verdict.UNCLEAR])
     assert (ls.passed, ls.partial, ls.failed, ls.unclear, ls.total) == (1, 1, 1, 1, 4)
     assert ls.score == 50.0
 
 
 def test_all_unclear_level_has_no_score() -> None:
-    assert level_score(2, [Verdict.UNCLEAR, Verdict.UNCLEAR]).score is None
+    assert level_score("direct", 2, [Verdict.UNCLEAR, Verdict.UNCLEAR]).score is None
 
 
 def test_overall_score_weights_higher_levels_more() -> None:
-    easy_pass = overall_score([level_score(1, [Verdict.PASS]), level_score(3, [Verdict.FAIL])])
-    hard_pass = overall_score([level_score(1, [Verdict.FAIL]), level_score(3, [Verdict.PASS])])
+    easy_pass = overall_score(
+        [level_score("direct", 1, [Verdict.PASS]), level_score("direct", 3, [Verdict.FAIL])]
+    )
+    hard_pass = overall_score(
+        [level_score("direct", 1, [Verdict.FAIL]), level_score("direct", 3, [Verdict.PASS])]
+    )
     assert hard_pass > easy_pass
 
 
+def test_track_scores_count_only_their_own_track() -> None:
+    levels = [level_score("direct", 1, [Verdict.PASS]), level_score("indirect", 1, [Verdict.FAIL])]
+    assert overall_score(levels, "direct") == 100
+    assert overall_score(levels, "indirect") == 0
+    assert overall_score(levels) == 50
+
+
 def test_overall_score_without_scored_levels_is_none() -> None:
-    assert overall_score([level_score(1, [Verdict.UNCLEAR])]) is None
+    assert overall_score([level_score("direct", 1, [Verdict.UNCLEAR])]) is None
 
 
 @pytest.mark.parametrize(

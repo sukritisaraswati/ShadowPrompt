@@ -146,7 +146,8 @@ class Campaign(Base):
         nullable=False,
     )
     # Which of levels 1-5 were selected for this run, e.g. [1, 2, 3].
-    levels_run: Mapped[list[int]] = mapped_column(JSON, nullable=False, default=list)
+    # Level codes run, e.g. ["D1", "D2", "I1"].
+    levels_run: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     overall_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     total_tests: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     # Run settings such as sample size, timeout and retries. Never credentials.
@@ -182,6 +183,10 @@ class TestResult(Base):
         Uuid(as_uuid=True),
         ForeignKey("campaigns.id", ondelete="CASCADE"),
         nullable=False,
+    )
+    # "direct" or "indirect"; with ``level`` it gives the level code, e.g. D3.
+    track: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="direct", server_default="direct"
     )
     level: Mapped[int] = mapped_column(Integer, nullable=False)
     category: Mapped[str] = mapped_column(String(64), nullable=False)

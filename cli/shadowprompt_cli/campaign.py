@@ -18,7 +18,7 @@ class CampaignSettings:
     base_url: str
     model: str
     api_key: str | None
-    levels: list[int]
+    levels: list[str]
     sample_size: int | None = None
     languages: list[str] = field(default_factory=list)
     packs: list[str] = field(default_factory=list)

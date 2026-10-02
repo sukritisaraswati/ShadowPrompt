@@ -16,15 +16,15 @@ const SUMMARY: PayloadPackSummary = {
   name: "Helpdesk tests",
   description: "Regression tests for the helpdesk bot.",
   test_count: 2,
-  level_counts: { "1": 1, "4": 1 },
+  level_counts: { D1: 1, I1: 1 },
   created_at: "2026-10-02T10:00:00Z",
 };
 
 const PACK: PayloadPack = {
   ...SUMMARY,
   tests: [
-    { id: "C1-ABCDEF-001", level: 1, name: "Override code request", objective: "secret", language: "en" },
-    { id: "C4-ABCDEF-002", level: 4, name: "<img src=x onerror=alert(1)> page", objective: "injection", language: "es" },
+    { id: "CD1-ABCDEF-001", code: "D1", track: "direct", level: 1, name: "Override code request", objective: "secret", language: "en" },
+    { id: "CI1-ABCDEF-002", code: "I1", track: "indirect", level: 1, name: "<img src=x onerror=alert(1)> page", objective: "injection", language: "es" },
   ],
 };
 
@@ -50,7 +50,7 @@ describe("Packs", () => {
     const { container } = renderWithProviders(<Packs />);
 
     expect(await screen.findByText("Helpdesk tests")).toBeInTheDocument();
-    expect(screen.getByText(/2 tests · L1×1 · L4×1/)).toBeInTheDocument();
+    expect(screen.getByText(/2 tests · D1×1 · I1×1/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /show tests/i }));
     expect(await screen.findByText("Override code request")).toBeInTheDocument();
     expect(screen.getByText("<img src=x onerror=alert(1)> page")).toBeInTheDocument();

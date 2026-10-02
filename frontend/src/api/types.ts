@@ -100,20 +100,58 @@ export type CampaignStatus =
 
 export const ACTIVE_STATUSES: ReadonlySet<CampaignStatus> = new Set(["pending", "running", "paused"]);
 
-/** The five attack levels (blueprint section 4). */
-export type AttackLevel = 1 | 2 | 3 | 4 | 5;
+export type Track = "direct" | "indirect";
 
-export const ATTACK_LEVELS: ReadonlyArray<{
-  level: AttackLevel;
+export interface AttackLevel {
+  /** Level code, e.g. "D1" or "I5". */
+  code: string;
   name: string;
   danger: string;
+}
+
+/** The two attack tracks of five levels each (mirrors LEVELS in payloads.py). */
+export const ATTACK_TRACKS: ReadonlyArray<{
+  track: Track;
+  name: string;
+  summary: string;
+  levels: ReadonlyArray<AttackLevel>;
 }> = [
-  { level: 1, name: "Basic Jailbreak", danger: "Low" },
-  { level: 2, name: "Persona & Role Manipulation", danger: "Medium" },
-  { level: 3, name: "Adversarial Instruction Design", danger: "High" },
-  { level: 4, name: "Indirect Injection via Web Content", danger: "Very High" },
-  { level: 5, name: "Chained & Multi-Vector Attacks", danger: "Critical" },
+  {
+    track: "direct",
+    name: "Direct prompt injection",
+    summary: "The attacker is the user, typing straight at the model.",
+    levels: [
+      { code: "D1", name: "Basic Jailbreak", danger: "Low" },
+      { code: "D2", name: "Persona & Role Manipulation", danger: "Medium" },
+      { code: "D3", name: "Adversarial Instruction Design", danger: "High" },
+      { code: "D4", name: "Multi-turn Escalation", danger: "Very High" },
+      { code: "D5", name: "Combined & Advanced Attacks", danger: "Critical" },
+    ],
+  },
+  {
+    track: "indirect",
+    name: "Indirect prompt injection",
+    summary: "The attacker hides instructions in content the model reads.",
+    levels: [
+      { code: "I1", name: "Hidden Page Instructions", danger: "Medium" },
+      { code: "I2", name: "Disguised Placement", danger: "High" },
+      { code: "I3", name: "Obfuscated Instructions", danger: "High" },
+      { code: "I4", name: "Multi-Vector Pages", danger: "Very High" },
+      { code: "I5", name: "Chained Indirect Attacks", danger: "Critical" },
+    ],
+  },
 ];
+
+/** Every level code in display order: D1 to D5, then I1 to I5. */
+export const LEVEL_ORDER: ReadonlyArray<string> = ATTACK_TRACKS.flatMap((t) => t.levels.map((l) => l.code));
+
+export const LEVEL_NAMES: Readonly<Record<string, string>> = Object.fromEntries(
+  ATTACK_TRACKS.flatMap((t) => t.levels.map((l) => [l.code, l.name])),
+);
+
+export function compareLevelCodes(a: string, b: string): number {
+  return LEVEL_ORDER.indexOf(a) - LEVEL_ORDER.indexOf(b);
+}
 
 // --------------------------------------------------------------------------
 // ShadowScan (mirrors app/schemas/scan.py)
@@ -228,6 +266,8 @@ export interface RatingInfo {
 }
 
 export interface LevelScore {
+  code: string;
+  track: Track;
   level: number;
   name: string;
   total: number;
@@ -282,6 +322,9 @@ export type CampaignEvent =
 export interface TestResult {
   id: string;
   payload_id: string;
+  track: Track;
+  /** Level code, e.g. "D3". */
+  code: string;
   level: number;
   category: string;
   technique: string;
@@ -302,15 +345,25 @@ export interface TestResult {
   created_at: string;
 }
 
+export interface TrackScore {
+  track: Track;
+  name: string;
+  score: number | null;
+  rating: RatingInfo | null;
+}
+
 export interface CampaignSummary {
   id: string;
   session: { id: string; provider: string; model_name: string; endpoint_host: string | null };
-  levels_run: number[];
+  /** Level codes run, e.g. ["D1", "I2"]. */
+  levels_run: string[];
   status: CampaignStatus;
   total_tests: number;
   completed_tests: number;
   overall_score: number | null;
   rating: RatingInfo | null;
+  /** Score in each track that was run. */
+  track_scores?: TrackScore[];
   started_at: string;
   completed_at: string | null;
 }
@@ -318,14 +371,18 @@ export interface CampaignSummary {
 export interface Campaign extends CampaignSummary {
   config: { sample_size: number | null; timeout_seconds: number; max_retries: number } | null;
   error_message: string | null;
-  current_level: number | null;
+  /** Level code being run, e.g. "D2". */
+  current_level: string | null;
   level_scores: LevelScore[];
   results: TestResult[];
 }
 
 export interface LevelSummary {
+  code: string;
+  track: Track;
   level: number;
   name: string;
+  description: string;
   category: string;
   danger: string;
   test_count: number;
@@ -335,6 +392,8 @@ export interface LevelSummary {
 /** A test inside an uploaded custom pack. */
 export interface PackTest {
   id: string;
+  code: string;
+  track: Track;
   level: number;
   name: string;
   objective: string;
@@ -347,7 +406,7 @@ export interface PayloadPackSummary {
   name: string;
   description: string | null;
   test_count: number;
-  /** Tests at each level, keyed by level number. */
+  /** Tests at each level, keyed by level code. */
   level_counts: Record<string, number>;
   created_at: string;
 }
@@ -368,7 +427,7 @@ export interface LanguagePackSummary {
   code: string;
   name: string;
   test_count: number;
-  /** Tests in the pack at each level, keyed by level number. */
+  /** Tests in the pack at each level, keyed by level code. */
   level_counts: Record<string, number>;
 }
 
@@ -376,6 +435,7 @@ export interface PayloadLibrarySummary {
   version: number;
   /** English tests, which every campaign runs. */
   total_tests: number;
+  tracks?: { track: Track; name: string; test_count: number }[];
   levels: LevelSummary[];
   languages?: LanguagePackSummary[];
 }

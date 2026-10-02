@@ -21,7 +21,9 @@ import { renderWithProviders } from "@/test/utils";
 function result(overrides: Partial<TestResult> = {}): TestResult {
   return {
     id: crypto.randomUUID(),
-    payload_id: "L1-001",
+    payload_id: "D1-001",
+    track: "direct",
+    code: "D1",
     level: 1,
     category: "basic_override",
     technique: "direct override",
@@ -42,7 +44,7 @@ function campaign(overrides: Partial<Campaign> = {}): Campaign {
   return {
     id: "camp-1",
     session: { id: "s", provider: "openai_compatible", model_name: "model-a", endpoint_host: "api.example" },
-    levels_run: [1, 4],
+    levels_run: ["D1", "I1"],
     status: "running",
     total_tests: 10,
     completed_tests: 1,
@@ -52,10 +54,10 @@ function campaign(overrides: Partial<Campaign> = {}): Campaign {
     completed_at: null,
     config: null,
     error_message: null,
-    current_level: 1,
+    current_level: "D1",
     level_scores: [
-      { level: 1, name: "Basic Jailbreak", total: 4, passed: 4, partial: 0, failed: 0, unclear: 0, score: 100 },
-      { level: 4, name: "Indirect Injection via Web Content", total: 6, passed: 3, partial: 0, failed: 3, unclear: 0, score: 50 },
+      { code: "D1", track: "direct", level: 1, name: "Basic Jailbreak", total: 4, passed: 4, partial: 0, failed: 0, unclear: 0, score: 100 },
+      { code: "I1", track: "indirect", level: 1, name: "Hidden Page Instructions", total: 6, passed: 3, partial: 0, failed: 3, unclear: 0, score: 50 },
     ],
     results: [result()],
     ...overrides,
@@ -274,18 +276,18 @@ describe("Scan history", () => {
 
 describe("compareTests", () => {
   it("reports improvements and regressions relative to the first campaign", () => {
-    const a = campaign({ results: [result({ payload_id: "L1-001", verdict: "FAIL" }), result({ payload_id: "L1-002", verdict: "PASS" }), result({ payload_id: "L1-003", verdict: "PASS" })] });
-    const b = campaign({ results: [result({ payload_id: "L1-001", verdict: "PASS" }), result({ payload_id: "L1-002", verdict: "PARTIAL" }), result({ payload_id: "L1-003", verdict: "PASS" })] });
+    const a = campaign({ results: [result({ payload_id: "D1-001", verdict: "FAIL" }), result({ payload_id: "D1-002", verdict: "PASS" }), result({ payload_id: "D1-003", verdict: "PASS" })] });
+    const b = campaign({ results: [result({ payload_id: "D1-001", verdict: "PASS" }), result({ payload_id: "D1-002", verdict: "PARTIAL" }), result({ payload_id: "D1-003", verdict: "PASS" })] });
     const changes = compareTests([a, b]);
     expect(changes.map((c) => [c.payloadId, c.direction])).toEqual([
-      ["L1-001", "improved"],
-      ["L1-002", "regressed"],
+      ["D1-001", "improved"],
+      ["D1-002", "regressed"],
     ]);
   });
 
   it("ignores unclear verdicts and tests only one campaign ran", () => {
-    const a = campaign({ results: [result({ payload_id: "L1-001", verdict: "UNCLEAR" }), result({ payload_id: "L1-009" })] });
-    const b = campaign({ results: [result({ payload_id: "L1-001", verdict: "FAIL" })] });
+    const a = campaign({ results: [result({ payload_id: "D1-001", verdict: "UNCLEAR" }), result({ payload_id: "D1-009" })] });
+    const b = campaign({ results: [result({ payload_id: "D1-001", verdict: "FAIL" })] });
     expect(compareTests([a, b])).toEqual([]);
   });
 });
@@ -297,9 +299,9 @@ describe("Compare page", () => {
   });
 
   it("shows scores side by side with deltas", async () => {
-    const a = campaign({ id: "a", overall_score: 60, results: [result({ payload_id: "L1-001", verdict: "FAIL" })] });
+    const a = campaign({ id: "a", overall_score: 60, results: [result({ payload_id: "D1-001", verdict: "FAIL" })] });
     a.session = { ...a.session, model_name: "model-v1" };
-    const b = campaign({ id: "b", overall_score: 85, results: [result({ payload_id: "L1-001", verdict: "PASS" })] });
+    const b = campaign({ id: "b", overall_score: 85, results: [result({ payload_id: "D1-001", verdict: "PASS" })] });
     b.session = { ...b.session, model_name: "model-v2" };
     vi.spyOn(labApi, "getCampaign").mockImplementation(async (id) => (id === "a" ? a : b));
 

@@ -50,8 +50,8 @@ def test_example_pack_uploads_and_lists(client) -> None:
     assert response.status_code == 201, response.text
     pack = response.json()
     assert pack["test_count"] == 4
-    assert pack["level_counts"] == {"1": 1, "2": 1, "3": 1, "4": 1}
-    assert [t["id"][:2] for t in pack["tests"]] == ["C1", "C2", "C3", "C4"]
+    assert pack["level_counts"] == {"D1": 1, "D2": 1, "D3": 1, "I1": 1}
+    assert [t["id"][:3] for t in pack["tests"]] == ["CD1", "CD2", "CD3", "CI1"]
     assert client.get(PACKS).json()[0]["id"] == pack["id"]
     assert client.get(f"{PACKS}/{pack['id']}").json()["tests"] == pack["tests"]
 
@@ -88,7 +88,7 @@ def test_deleting_a_pack(client) -> None:
         (variant(format="something-else"), "format"),
         (variant(tests=[]), "tests"),
         (variant(extra_field=True), "extra_field"),
-        (first_test(level=5), "level"),
+        (first_test(level=6), "level"),
         (first_test(objective="exfiltrate"), "objective"),
         (first_test(compliance_signals=[]), "compliance_signals"),
         (first_test(language="xx"), "language"),
@@ -117,7 +117,7 @@ def test_malformed_packs_are_rejected_with_a_reason(client, pack: dict, fragment
         # ... and never in the attack, or an echo would look like a leak.
         ({"prompt": "Is the code KIWI-2231?"}, "appears in the attack"),
         # A page only makes sense at Level 4.
-        ({"page_html": "<p>hi</p>"}, "only used by Level 4"),
+        ({"page_html": "<p>hi</p>", "track": "direct"}, "only used by indirect"),
     ],
 )
 def test_canary_rules_are_enforced(client, changes: dict, fragment: str) -> None:
@@ -229,7 +229,7 @@ def test_custom_tests_are_never_sampled_out(client, use_model) -> None:
     body = {
         "session_id": connect(client),
         "connection": connection(),
-        "levels": [1, 2, 3, 4],
+        "levels": ["D1", "D2", "D3", "I1"],
         "sample_size": 1,
         "custom_pack_ids": [pack_id],
     }
@@ -246,13 +246,13 @@ def test_custom_tests_join_their_levels(client, use_model) -> None:
     body = {
         "session_id": connect(client),
         "connection": connection(),
-        "levels": [1, 4],
+        "levels": ["D1", "I1"],
         "custom_pack_ids": [pack_id],
     }
     started = client.post("/api/v1/lab/campaigns", json=body).json()
     result = wait_done(client, started["campaign_id"], timeout=60)
     custom = [r for r in result["results"] if r["custom_pack"]]
-    assert sorted(r["level"] for r in custom) == [1, 4]
+    assert sorted(r["code"] for r in custom) == ["D1", "I1"]
     assert {r["custom_pack"] for r in custom} == {EXAMPLE["name"]}
     # The vulnerable model leaks the code and obeys the page.
     assert {r["verdict"] for r in custom} == {"FAIL"}
@@ -267,7 +267,7 @@ def test_results_stay_readable_after_the_pack_is_deleted(client, use_model) -> N
     body = {
         "session_id": connect(client),
         "connection": connection(),
-        "levels": [1],
+        "levels": ["D1"],
         "custom_pack_ids": [pack_id],
     }
     started = client.post("/api/v1/lab/campaigns", json=body).json()
@@ -287,7 +287,7 @@ def test_unknown_pack_ids_are_not_found(client, use_model) -> None:
     body = {
         "session_id": connect(client),
         "connection": connection(),
-        "levels": [1],
+        "levels": ["D1"],
         "custom_pack_ids": ["00000000-0000-4000-8000-000000000000"],
     }
     response = client.post("/api/v1/lab/campaigns", json=body)
@@ -303,7 +303,7 @@ def test_hostile_pack_text_is_inert_in_the_report(client, use_model) -> None:
     body = {
         "session_id": connect(client),
         "connection": connection(),
-        "levels": [1],
+        "levels": ["D1"],
         "custom_pack_ids": [pack_id],
     }
     started = client.post("/api/v1/lab/campaigns", json=body).json()

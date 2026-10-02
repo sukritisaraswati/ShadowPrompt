@@ -333,7 +333,7 @@ def test_campaign_passes_above_the_minimum(server, monkeypatch, tmp_path, capsys
     assert body["connection"]["api_key"] == KEY
     assert body["languages"] == ["es", "hi"]
     assert body["custom_pack_ids"] == ["pack-1"]
-    assert body["levels"] == [1]
+    assert body["levels"] == ["D1"]
     assert report.read_bytes() == b"%PDF-1.7 report"
     assert (
         next(r for r in server.requests if r.path == "/api/v1/lab/reports").json()["format"]
@@ -385,7 +385,15 @@ def test_campaign_writes_github_outputs(server, tmp_path, monkeypatch) -> None:
     assert "score=91.5" in text and "campaign-id=camp-1" in text and "failed=false" in text
 
 
-@pytest.mark.parametrize("levels", ["0", "6", "a,b", ""])
+@pytest.mark.parametrize(
+    ("levels", "expected"),
+    [("D1,I2", ["D1", "I2"]), ("i5, d3", ["D3", "I5"]), ("1,2,3", ["D1", "D2", "D3"])],
+)
+def test_levels_are_level_codes(levels, expected) -> None:
+    assert cli._levels(levels) == expected
+
+
+@pytest.mark.parametrize("levels", ["0", "4", "D6", "X1", "a,b", ""])
 def test_invalid_levels_are_rejected(server, levels) -> None:
     with pytest.raises(SystemExit):
         cli.main([*campaign_args(server)[:-2], "--levels", levels])

@@ -11,36 +11,29 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import { toApiError } from "@/api/client";
 import { getCampaign } from "@/api/lab";
-import type { ApiError, Campaign, Verdict } from "@/api/types";
+import { ATTACK_TRACKS, compareLevelCodes, LEVEL_NAMES, type ApiError, type Campaign, type Verdict } from "@/api/types";
 import ErrorAlert from "@/components/ErrorAlert";
 import { SeverityBadge } from "@/components/Severity";
 import { RATING_COLOUR, VerdictBadge } from "@/components/Verdict";
 
-const LEVEL_NAMES: Record<number, string> = {
-  1: "Basic Jailbreak",
-  2: "Persona & Role",
-  3: "Adversarial Design",
-  4: "Indirect Injection",
-  5: "Chained Attacks",
-};
 const RANK: Partial<Record<Verdict, number>> = { PASS: 2, PARTIAL: 1, FAIL: 0 };
 
 export interface TestChange {
   payloadId: string;
   name: string;
-  level: number;
+  code: string;
   verdicts: (Verdict | null)[];
   direction: "improved" | "regressed" | "mixed";
 }
 
 /** Tests whose verdict differs across campaigns, relative to the first. */
 export function compareTests(campaigns: Campaign[]): TestChange[] {
-  const byPayload = new Map<string, { name: string; level: number; verdicts: (Verdict | null)[] }>();
+  const byPayload = new Map<string, { name: string; code: string; verdicts: (Verdict | null)[] }>();
   campaigns.forEach((c, index) => {
     for (const r of c.results) {
       const entry = byPayload.get(r.payload_id) ?? {
         name: r.name,
-        level: r.level,
+        code: r.code,
         verdicts: Array<Verdict | null>(campaigns.length).fill(null),
       };
       entry.verdicts[index] = r.verdict;
@@ -60,12 +53,12 @@ export function compareTests(campaigns: Campaign[]): TestChange[] {
     changes.push({
       payloadId,
       name: entry.name,
-      level: entry.level,
+      code: entry.code,
       verdicts: entry.verdicts,
       direction: up && down ? "mixed" : up ? "improved" : "regressed",
     });
   }
-  return changes.sort((a, b) => a.level - b.level || a.payloadId.localeCompare(b.payloadId));
+  return changes.sort((a, b) => compareLevelCodes(a.code, b.code) || a.payloadId.localeCompare(b.payloadId));
 }
 
 function delta(value: number | null | undefined, base: number | null | undefined) {
@@ -129,7 +122,8 @@ export default function Compare() {
   if (!campaigns) return <p role="status" className="text-slate-500">Loading campaigns&hellip;</p>;
 
   const base = campaigns[0];
-  const levels = Array.from(new Set(campaigns.flatMap((c) => c.levels_run))).sort();
+  const levels = Array.from(new Set(campaigns.flatMap((c) => c.levels_run))).sort(compareLevelCodes);
+  const tracks = ATTACK_TRACKS.filter((t) => campaigns.some((c) => c.track_scores?.some((s) => s.track === t.track)));
   const improved = changes.filter((c) => c.direction === "improved").length;
   const regressed = changes.filter((c) => c.direction === "regressed").length;
 
@@ -172,14 +166,29 @@ export default function Compare() {
                 </td>
               ))}
             </tr>
+            {tracks.map((t) => (
+              <tr key={t.track} className="border-b border-slate-100 dark:border-slate-900">
+                <td className="py-2 pr-3 font-medium">{t.name}</td>
+                {campaigns.map((c) => {
+                  const score = c.track_scores?.find((s) => s.track === t.track)?.score ?? null;
+                  const baseScore = base.track_scores?.find((s) => s.track === t.track)?.score ?? null;
+                  return (
+                    <td key={c.id} className="py-2 pr-3 font-medium">
+                      {score === null ? <span className="text-slate-400">not run</span> : score}{" "}
+                      {c !== base && delta(score, baseScore)}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
             {levels.map((level) => (
               <tr key={level} className="border-b border-slate-100 dark:border-slate-900">
                 <td className="py-2 pr-3">
                   <span className="font-bold text-accent-500">{level}</span> {LEVEL_NAMES[level]}
                 </td>
                 {campaigns.map((c) => {
-                  const score = c.level_scores.find((ls) => ls.level === level)?.score ?? null;
-                  const baseScore = base.level_scores.find((ls) => ls.level === level)?.score ?? null;
+                  const score = c.level_scores.find((ls) => ls.code === level)?.score ?? null;
+                  const baseScore = base.level_scores.find((ls) => ls.code === level)?.score ?? null;
                   return (
                     <td key={c.id} className="py-2 pr-3">
                       {score === null ? <span className="text-slate-400">not run</span> : score}{" "}
@@ -218,7 +227,7 @@ export default function Compare() {
                   <tr key={change.payloadId} className="border-b border-slate-100 dark:border-slate-900">
                     <td className="py-2 pr-3">
                       <div>{change.name}</div>
-                      <div className="text-xs text-slate-500">Level {change.level}</div>
+                      <div className="text-xs text-slate-500">{change.code}</div>
                     </td>
                     <td className="py-2 pr-3">
                       <span
