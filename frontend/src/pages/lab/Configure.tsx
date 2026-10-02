@@ -182,7 +182,7 @@ export default function Configure() {
             <p className="mt-1 text-xs text-slate-500">
               English tests always run. Add tests written in other languages: a model that refuses an attack in
               English can still fall for the same attack in a language it was less carefully aligned in. Each pack
-              adds one test to each of Levels 1 to 4.
+              adds one test each at D1, D2, D3 and I3.
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               {library.languages.map((pack) => (
