@@ -24,7 +24,7 @@ beforeEach(() => {
 
 const ROUTES: Array<[path: string, heading: RegExp]> = [
   ["/", /shadowprompt/i],
-  ["/lab/connect", /llm connection/i],
+  ["/lab/connect", /connect a target/i],
   ["/lab/configure", /campaign setup/i],
   ["/lab/running", /live test run/i],
   ["/lab/history", /past campaigns/i],

@@ -11,14 +11,65 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, SecretStr, field_validator
+from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
 
 from app.db.models import CampaignStatus, Verdict
 from app.schemas.common import PaginationMeta
+from app.services.lab.chatbot import (
+    CANARY_PATTERN,
+    MAX_TEMPLATE_CHARS,
+    ChatbotSpec,
+    ConversationMode,
+    validate_headers,
+    validate_template,
+)
 from app.services.lab.llm_client import Provider
 from app.services.lab.payloads import LEVEL_CODES
 from app.services.lab.scoring import Rating
 from app.services.languages import EXTRA_LANGUAGES
+
+
+class ChatbotIn(BaseModel):
+    """How to reach the user's own chatbot (provider ``chatbot``)."""
+
+    # JSON with placeholders, e.g. {"message": "{{message}}", "history": "{{history}}"}.
+    body_template: str = Field(min_length=2, max_length=MAX_TEMPLATE_CHARS)
+    # Where the reply text is in the JSON response, e.g. "reply" or "data.0.text".
+    response_path: str = Field(default="", max_length=200)
+    mode: ConversationMode = ConversationMode.HISTORY
+    # Sent with every request. Values are credentials: never stored or echoed.
+    headers: dict[str, SecretStr] = Field(default_factory=dict)
+    # The made-up access code the user added to their bot's instructions.
+    canary: str | None = Field(default=None, max_length=40)
+
+    @field_validator("headers")
+    @classmethod
+    def _valid_headers(cls, value: dict[str, SecretStr]) -> dict[str, SecretStr]:
+        validate_headers({k: v.get_secret_value() for k, v in value.items()})
+        return value
+
+    @field_validator("canary")
+    @classmethod
+    def _valid_canary(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        value = value.strip().upper()
+        if not CANARY_PATTERN.match(value):
+            raise ValueError("the canary looks like WORD-1234")
+        return value
+
+    @model_validator(mode="after")
+    def _valid_template(self) -> ChatbotIn:
+        validate_template(self.body_template, self.mode)
+        return self
+
+    def spec(self) -> ChatbotSpec:
+        return ChatbotSpec(
+            body_template=self.body_template,
+            response_path=self.response_path,
+            mode=self.mode,
+            headers=tuple(self.headers.items()),
+        )
 
 
 class ConnectionIn(BaseModel):
@@ -26,6 +77,15 @@ class ConnectionIn(BaseModel):
     base_url: str = Field(min_length=1, max_length=2048)
     model: str = Field(min_length=1, max_length=200)
     api_key: SecretStr | None = Field(default=None, max_length=1000)
+    # Required for provider "chatbot", where base_url is the chat endpoint and
+    # model is a display name.
+    chatbot: ChatbotIn | None = None
+
+    @model_validator(mode="after")
+    def _chatbot_matches_provider(self) -> ConnectionIn:
+        if (self.provider is Provider.CHATBOT) != (self.chatbot is not None):
+            raise ValueError("chatbot settings go with provider 'chatbot', and only with it")
+        return self
 
     @field_validator("base_url", "model")
     @classmethod

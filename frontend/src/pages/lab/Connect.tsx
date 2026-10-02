@@ -13,6 +13,7 @@ import { toApiError } from "@/api/client";
 import { getCapabilities, PROVIDER_LABELS, PROVIDER_PRESETS, testConnection } from "@/api/lab";
 import type { ApiError, ConnectionTestResult, LabCapabilities, LlmProvider } from "@/api/types";
 import ErrorAlert from "@/components/ErrorAlert";
+import ChatbotConnect from "@/pages/lab/ChatbotConnect";
 import { describeConnection, useSession, type LlmConnection } from "@/context/SessionContext";
 
 const INPUT =
@@ -30,6 +31,9 @@ export default function Connect() {
   const [error, setError] = useState<ApiError | null>(null);
   const [result, setResult] = useState<ConnectionTestResult | null>(null);
   const [busy, setBusy] = useState(false);
+  const [target, setTarget] = useState<"model" | "chatbot">(
+    session.connection?.provider === "chatbot" ? "chatbot" : "model",
+  );
   const [capabilities, setCapabilities] = useState<LabCapabilities | null>(null);
 
   useEffect(() => {
@@ -94,11 +98,31 @@ export default function Connect() {
 
   return (
     <section className="max-w-2xl">
-      <h1 className="text-2xl font-bold tracking-tight">LLM Connection</h1>
+      <h1 className="text-2xl font-bold tracking-tight">Connect a target</h1>
       <p className="mt-2 text-slate-600 dark:text-slate-300">
-        Connect the model you want to test. A single harmless message checks the connection
+        Connect what you want to test. A single harmless message checks the connection
         before any attack is sent.
       </p>
+
+      <div role="radiogroup" aria-label="What are you testing?" className="mt-5 grid gap-3 sm:grid-cols-2">
+        {(
+          [
+            ["model", "A model API", "OpenAI, Anthropic, Gemini, Azure, or a local model. Tests bring their own instructions."],
+            ["chatbot", "My chatbot", "Your own bot's endpoint, with its own instructions, data and filters."],
+          ] as const
+        ).map(([value, label, help]) => (
+          <label
+            key={value}
+            className={`cursor-pointer rounded-lg border p-3 text-sm ${
+              target === value ? "border-accent-500 bg-accent-500/5" : "border-slate-200 dark:border-slate-800"
+            }`}
+          >
+            <input type="radio" name="target" className="sr-only" checked={target === value} onChange={() => setTarget(value)} />
+            <span className="font-semibold">{label}</span>
+            <span className="mt-1 block text-xs text-slate-500">{help}</span>
+          </label>
+        ))}
+      </div>
 
       {session.isVerified && session.connection && !result && (
         <div className="mt-4 flex flex-wrap items-center gap-3 rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">
@@ -112,6 +136,10 @@ export default function Connect() {
         </div>
       )}
 
+      {target === "chatbot" ? (
+        <ChatbotConnect />
+      ) : (
+        <>
       <form onSubmit={onSubmit} noValidate className="mt-6 space-y-4">
         <div>
           <label htmlFor="preset" className="block text-sm font-medium">
@@ -156,7 +184,7 @@ export default function Connect() {
               API format
             </label>
             <select id="api-format" value={provider} onChange={(e) => setProvider(e.target.value as LlmProvider)} disabled={busy} className={INPUT}>
-              {Object.entries(PROVIDER_LABELS).map(([value, label]) => (
+              {Object.entries(PROVIDER_LABELS).filter(([value]) => value !== "chatbot").map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
@@ -226,6 +254,8 @@ export default function Connect() {
             Continue to campaign setup
           </Link>
         </div>
+      )}
+        </>
       )}
     </section>
   );

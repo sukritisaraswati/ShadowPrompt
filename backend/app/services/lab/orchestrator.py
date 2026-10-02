@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import secrets
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -38,10 +39,18 @@ from app.core.errors import AppError
 from app.db.models import Campaign, CampaignStatus, TestResult, Verdict
 from app.db.session import get_sessionmaker
 from app.schemas.common import ErrorCode
+from app.services.lab.chatbot import ConversationMode
 from app.services.lab.evaluator import Evaluation, evaluate, evaluate_conversation
 from app.services.lab.events import events
 from app.services.lab.judge import Judge, JudgeRequest
-from app.services.lab.llm_client import ChatMessage, LlmBackend, LlmConfig, LlmReply, chat
+from app.services.lab.llm_client import (
+    ChatMessage,
+    LlmBackend,
+    LlmConfig,
+    LlmReply,
+    Provider,
+    chat,
+)
 from app.services.lab.payloads import Payload
 from app.services.lab.scoring import level_score, overall_score
 
@@ -247,15 +256,34 @@ class _RunState:
     consecutive_errors: int = 0
 
 
+def _conversation_id(campaign_id: uuid.UUID, payload: Payload, config: LlmConfig) -> str:
+    """A fresh id per test, so a chatbot that keeps history starts each test clean."""
+    if config.provider is not Provider.CHATBOT:
+        return ""
+    return f"shadowprompt-{campaign_id.hex[:8]}-{payload.id}-{secrets.token_hex(3)}"
+
+
+def _server_keeps_history(config: LlmConfig) -> bool:
+    return config.chatbot is not None and config.chatbot.mode is ConversationMode.SERVER
+
+
 async def _converse(
-    payload: Payload, config: LlmConfig, settings: Settings, backend: LlmBackend
+    payload: Payload,
+    config: LlmConfig,
+    settings: Settings,
+    backend: LlmBackend,
+    conversation_id: str = "",
 ) -> list[LlmReply]:
     """Play a live conversation: each user turn, then the model's real reply."""
     history = [ChatMessage("system", payload.spec.system_context)]
     replies: list[LlmReply] = []
     for turn in payload.user_turns():
         history.append(ChatMessage("user", turn))
-        reply = await chat(config, history, settings=settings, backend=backend)
+        # A chatbot that keeps its own history gets each new message alone.
+        sent = [history[-1]] if _server_keeps_history(config) else history
+        reply = await chat(
+            config, sent, settings=settings, backend=backend, conversation_id=conversation_id
+        )
         replies.append(reply)
         history.append(ChatMessage("assistant", reply.text or "(no reply)"))
     return replies
@@ -292,12 +320,19 @@ async def _run_one(
     state: _RunState,
 ) -> None:
     started = asyncio.get_running_loop().time()
+    conversation_id = _conversation_id(campaign_id, payload, config)
     try:
         if payload.is_live:
-            replies = await _converse(payload, config, settings, backend)
+            replies = await _converse(payload, config, settings, backend, conversation_id)
             evaluation = evaluate_conversation(payload, replies)
         else:
-            reply = await chat(config, payload.messages(), settings=settings, backend=backend)
+            reply = await chat(
+                config,
+                payload.messages(),
+                settings=settings,
+                backend=backend,
+                conversation_id=conversation_id,
+            )
             evaluation = evaluate(payload, reply)
     except AppError as exc:
         if exc.code in FATAL_CODES:
@@ -332,6 +367,12 @@ async def _run_one(
             detail["decided_by"] = "layer3"
     if payload.page_scan is not None:
         detail["page_scan"] = payload.page_scan.as_dict()
+    if config.chatbot is not None:
+        detail["target"] = "chatbot"
+        scripted = isinstance(payload.spec.prompt, list) and not payload.is_live
+        if scripted and config.chatbot.mode is not ConversationMode.HISTORY:
+            # The bot cannot take a scripted history, so it arrived as one message.
+            detail["history_flattened"] = True
 
     await _record(
         campaign_id,

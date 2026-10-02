@@ -268,6 +268,17 @@ export default function Configure() {
           </label>
         </fieldset>
 
+        {connection.chatbot && (
+          <div role="note" className="rounded-md border border-sky-300 bg-sky-50 p-4 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-100">
+            Tests are adapted to your chatbot, which keeps its own instructions.{" "}
+            {connection.chatbot.canary
+              ? "Secret-leak tests look for the canary you planted."
+              : "No canary is planted, so tests that need a guarded secret are skipped."}{" "}
+            {connection.chatbot.mode === "message" && "Your bot has no memory, so multi-turn tests are skipped. "}
+            The count below is the most that can run; the results say which tests were skipped and why.
+          </div>
+        )}
+
         <div className="rounded-md border border-slate-200 p-4 text-sm dark:border-slate-800">
           <p>
             This campaign will send <span className="font-semibold">{testCount}</span> requests to your model, one at a time.

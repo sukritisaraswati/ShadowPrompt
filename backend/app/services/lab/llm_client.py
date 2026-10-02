@@ -8,6 +8,8 @@ returns the reply text. Four wire formats are supported:
 * ``anthropic``: the Anthropic Messages API.
 * ``gemini``: the Google Gemini ``generateContent`` API.
 * ``azure_openai``: an Azure OpenAI deployment URL.
+* ``chatbot``: the user's own chatbot endpoint, described by a request
+  template and a response path (see :mod:`app.services.lab.chatbot`).
 
 Security properties:
 
@@ -29,7 +31,7 @@ import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 from pydantic import SecretStr
@@ -39,6 +41,9 @@ from app.core.errors import AppError
 from app.core.logging import redact
 from app.core.netguard import Resolver, parse_target, pin, resolve_public, system_resolver
 from app.schemas.common import ErrorCode
+
+if TYPE_CHECKING:
+    from app.services.lab.chatbot import ChatbotSpec
 
 AZURE_API_VERSION = "2024-10-21"
 ANTHROPIC_VERSION = "2023-06-01"
@@ -50,6 +55,7 @@ class Provider(StrEnum):
     ANTHROPIC = "anthropic"
     GEMINI = "gemini"
     AZURE_OPENAI = "azure_openai"
+    CHATBOT = "chatbot"
 
 
 @dataclass(frozen=True)
@@ -66,6 +72,8 @@ class LlmConfig:
     api_key: SecretStr | None = None
     timeout_seconds: float = 60.0
     max_retries: int = 1
+    # Set for Provider.CHATBOT: how to talk to the user's endpoint.
+    chatbot: ChatbotSpec | None = None
 
     def __repr__(self) -> str:  # never show the key, even masked
         return (
@@ -121,7 +129,12 @@ def _openai_url(base: str) -> str:
 
 
 def build_request(
-    config: LlmConfig, messages: Sequence[ChatMessage], max_tokens: int, *, compat: bool = False
+    config: LlmConfig,
+    messages: Sequence[ChatMessage],
+    max_tokens: int,
+    *,
+    compat: bool = False,
+    conversation_id: str = "",
 ) -> _WireRequest:
     """The provider-specific URL, headers and JSON body for one call.
 
@@ -130,6 +143,17 @@ def build_request(
     """
     key = _key(config)
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
+
+    if config.provider is Provider.CHATBOT:
+        from app.services.lab.chatbot import render_body
+
+        spec = config.chatbot
+        if spec is None:
+            raise ValueError("a chatbot connection needs its request template")
+        for name, value in spec.headers:
+            headers[name] = value.get_secret_value()
+        body = render_body(spec, [(m.role, m.content) for m in messages], conversation_id)
+        return _WireRequest(config.base_url, headers, body)
 
     if config.provider is Provider.ANTHROPIC:
         system, turns = _split_system(messages)
@@ -228,9 +252,12 @@ def parse_reply(provider: Provider, data: Any) -> tuple[str, bool]:
 
 def _scrub(text: str, config: LlmConfig) -> str:
     """Make provider error text safe to show: no key, no key fragments."""
-    key = _key(config)
-    if key:
-        text = text.replace(key, "[REDACTED]")
+    secrets = [_key(config)]
+    if config.chatbot is not None:
+        secrets.extend(config.chatbot.header_values())
+    for secret in secrets:
+        if secret:
+            text = text.replace(secret, "[REDACTED]")
     text = _KEYISH.sub("[REDACTED]", redact(text))
     return text[:300]
 
@@ -340,8 +367,15 @@ async def _attempt(
     settings: Settings,
     backend: LlmBackend,
     compat: bool,
+    conversation_id: str = "",
 ) -> tuple[str, bool]:
-    wire = build_request(config, messages, settings.llm_max_output_tokens, compat=compat)
+    wire = build_request(
+        config,
+        messages,
+        settings.llm_max_output_tokens,
+        compat=compat,
+        conversation_id=conversation_id,
+    )
     allow_private = settings.llm_allow_private_endpoints
     try:
         target = parse_target(wire.url, allow_private=allow_private)
@@ -369,7 +403,9 @@ async def _attempt(
     if status >= 400:
         if not compat and config.provider in (Provider.OPENAI_COMPATIBLE, Provider.AZURE_OPENAI):
             if _needs_compat(status, raw):
-                return await _attempt(client, config, messages, settings, backend, True)
+                return await _attempt(
+                    client, config, messages, settings, backend, True, conversation_id
+                )
         # Azure and OpenAI report a content-filter refusal as a 400.
         if status == 400 and b"content_filter" in raw:
             return "", True
@@ -379,6 +415,19 @@ async def _attempt(
             delay = float(retry_after) if retry_after and retry_after.isdigit() else None
             raise _Retryable(error, delay)
         raise error
+
+    if config.provider is Provider.CHATBOT and config.chatbot is not None:
+        from app.services.lab.chatbot import extract_reply
+
+        try:
+            return extract_reply(config.chatbot, raw), False
+        except ValueError as exc:
+            raise AppError(
+                ErrorCode.LLM_UNREACHABLE,
+                "The chatbot's response did not match the response path.",
+                status_code=502,
+                detail=_scrub(str(exc), config),
+            ) from exc
 
     try:
         return parse_reply(config.provider, json.loads(raw))
@@ -397,8 +446,12 @@ async def chat(
     *,
     settings: Settings | None = None,
     backend: LlmBackend | None = None,
+    conversation_id: str = "",
 ) -> LlmReply:
     """Send one conversation to the model and return its reply.
+
+    ``conversation_id`` identifies the conversation to a chatbot that keeps
+    its own history; other providers ignore it.
 
     Rate limits, server errors, timeouts and connection failures are retried
     up to ``config.max_retries`` times with exponential backoff. Everything
@@ -420,7 +473,7 @@ async def chat(
             try:
                 async with asyncio.timeout(config.timeout_seconds):
                     text, blocked = await _attempt(
-                        client, config, messages, settings, backend, False
+                        client, config, messages, settings, backend, False, conversation_id
                     )
                 return LlmReply(
                     text=text,

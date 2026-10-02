@@ -176,6 +176,24 @@ export default function Results() {
         </p>
       )}
 
+      {campaign.config?.target?.kind === "chatbot" && (
+        <section role="note" className="rounded-md border border-sky-300 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-100">
+          <p>
+            Tested as a chatbot ({campaign.config.target.mode === "server" ? "server keeps the conversation" : campaign.config.target.mode === "message" ? "single messages" : "history sent with each request"},{" "}
+            {campaign.config.target.canary_planted ? "canary planted" : "no canary"}).
+          </p>
+          {Object.entries(campaign.config.target.skipped).length > 0 && (
+            <ul className="mt-1 list-disc pl-5">
+              {Object.entries(campaign.config.target.skipped).map(([why, n]) => (
+                <li key={why}>
+                  {n} {n === 1 ? "test was" : "tests were"} skipped: {why}.
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
       {(campaign.track_scores ?? []).length > 0 && (
         <section className="grid gap-3 sm:grid-cols-2">
           {(campaign.track_scores ?? []).map((t) => (

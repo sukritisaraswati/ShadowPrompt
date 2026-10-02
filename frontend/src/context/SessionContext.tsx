@@ -19,7 +19,7 @@ import {
   type ReactNode,
 } from "react";
 
-import type { LlmProvider } from "@/api/types";
+import type { ChatbotSettings, LlmProvider } from "@/api/types";
 
 export interface LlmConnection {
   /** Wire format the backend uses to talk to the model (blueprint 3.1). */
@@ -29,6 +29,8 @@ export interface LlmConnection {
   modelName: string;
   /** Absent for a local endpoint that needs no key. */
   apiKey?: string;
+  /** Set when testing the user's own chatbot (provider "chatbot"). Memory only. */
+  chatbot?: ChatbotSettings;
 }
 
 export interface SessionState {
@@ -89,12 +91,16 @@ export function useSession(): SessionContextValue {
  */
 export function describeConnection(connection: LlmConnection | null): string {
   if (!connection) return "Not connected";
-  const auth = connection.apiKey ? "key supplied" : "no key";
   let host = connection.baseUrl;
   try {
     host = new URL(connection.baseUrl).host;
   } catch {
     // Show the raw value if it is not a parseable URL.
   }
+  if (connection.chatbot) {
+    const canary = connection.chatbot.canary ? "canary planted" : "no canary";
+    return `${connection.modelName}, your chatbot at ${host} (${canary})`;
+  }
+  const auth = connection.apiKey ? "key supplied" : "no key";
   return `${connection.modelName} at ${host} (${auth})`;
 }

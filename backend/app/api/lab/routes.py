@@ -30,6 +30,7 @@ from app.schemas.lab import (
     CampaignPage,
     CampaignReportRequest,
     CampaignStarted,
+    ChatbotIn,
     ConnectionIn,
     ConnectionTestOut,
     LabCapabilities,
@@ -38,6 +39,7 @@ from app.schemas.lab import (
     PayloadPackSummary,
 )
 from app.services.lab import campaign_service
+from app.services.lab.chatbot import adapt_payload
 from app.services.lab.custom_packs import MAX_PACK_BYTES, example_pack, parse_pack
 from app.services.lab.custom_packs import json_schema as pack_json_schema
 from app.services.lab.evaluator import summarize
@@ -73,11 +75,27 @@ def _config(connection: ConnectionIn, *, timeout: float, retries: int) -> LlmCon
         api_key=connection.api_key,
         timeout_seconds=timeout,
         max_retries=retries,
+        chatbot=connection.chatbot.spec() if connection.chatbot else None,
     )
 
 
 def _not_found() -> AppError:
     return AppError(ErrorCode.NOT_FOUND, "Campaign not found.", status_code=404)
+
+
+def _adapt_for_chatbot(
+    payloads: list[Payload], chatbot: ChatbotIn
+) -> tuple[list[Payload], dict[str, int]]:
+    """The tests as they apply to the user's chatbot, and counts of those skipped."""
+    adapted: list[Payload] = []
+    skipped: dict[str, int] = {}
+    for payload in payloads:
+        result = adapt_payload(payload, chatbot.canary, chatbot.mode)
+        if result.payload is None:
+            skipped[result.skipped or "skipped"] = skipped.get(result.skipped or "skipped", 0) + 1
+        else:
+            adapted.append(result.payload)
+    return adapted, skipped
 
 
 def _pack_not_found() -> AppError:
@@ -303,6 +321,22 @@ async def start_campaign(
         languages=body.languages,
         extra=custom,
     )
+    target: dict | None = None
+    if body.connection.chatbot is not None:
+        payloads, skipped = _adapt_for_chatbot(payloads, body.connection.chatbot)
+        target = {
+            "kind": "chatbot",
+            "mode": body.connection.chatbot.mode.value,
+            "canary_planted": body.connection.chatbot.canary is not None,
+            "skipped": skipped,
+        }
+        if not payloads:
+            raise AppError(
+                ErrorCode.VALIDATION_ERROR,
+                "None of the selected tests can run against this chatbot.",
+                status_code=422,
+                detail="; ".join(f"{n} {why}" for why, n in skipped.items()),
+            )
     campaign = Campaign(
         id=campaign_id,
         session_id=session.id,
@@ -315,6 +349,7 @@ async def start_campaign(
             "custom_pack_ids": [str(pack_id) for pack_id in body.custom_pack_ids],
             # The custom tests as they were run, kept with the campaign.
             "custom_payloads": campaign_service.custom_snapshot(payloads),
+            **({"target": target} if target else {}),
             "timeout_seconds": body.timeout_seconds,
             "max_retries": body.max_retries,
         },

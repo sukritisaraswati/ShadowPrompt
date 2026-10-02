@@ -239,7 +239,31 @@ export interface DemoPage {
 // ShadowPrompt Lab (mirrors app/schemas/lab.py)
 // --------------------------------------------------------------------------
 
-export type LlmProvider = "openai_compatible" | "anthropic" | "gemini" | "azure_openai";
+export type LlmProvider = "openai_compatible" | "anthropic" | "gemini" | "azure_openai" | "chatbot";
+
+/** How the user's chatbot handles a conversation. */
+export type ConversationMode = "history" | "server" | "message";
+
+/** How to reach the user's own chatbot. Header values are credentials: memory only. */
+export interface ChatbotSettings {
+  /** JSON with placeholders: {{message}}, {{history}}, {{messages}}, {{conversation_id}}. */
+  bodyTemplate: string;
+  /** Where the reply text is in the JSON response, e.g. "reply". Empty: the whole body. */
+  responsePath: string;
+  mode: ConversationMode;
+  headers: { name: string; value: string }[];
+  /** The made-up access code planted in the bot's instructions, if any. */
+  canary?: string;
+}
+
+/** What a campaign against a chatbot recorded about the target. */
+export interface ChatbotTargetInfo {
+  kind: "chatbot";
+  mode: ConversationMode;
+  canary_planted: boolean;
+  /** Tests that could not run, by reason. */
+  skipped: Record<string, number>;
+}
 
 export type Rating = "secure" | "moderate" | "vulnerable" | "critical";
 
@@ -369,7 +393,13 @@ export interface CampaignSummary {
 }
 
 export interface Campaign extends CampaignSummary {
-  config: { sample_size: number | null; timeout_seconds: number; max_retries: number } | null;
+  config: {
+    sample_size: number | null;
+    timeout_seconds: number;
+    max_retries: number;
+    languages?: string[];
+    target?: ChatbotTargetInfo;
+  } | null;
   error_message: string | null;
   /** Level code being run, e.g. "D2". */
   current_level: string | null;
