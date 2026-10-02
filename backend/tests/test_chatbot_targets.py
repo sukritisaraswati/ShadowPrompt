@@ -234,7 +234,7 @@ def test_connecting_sends_the_headers_and_reads_the_reply(client, use_model) -> 
 
 def test_a_vulnerable_chatbot_fails_and_a_resistant_one_passes(client, use_model) -> None:
     use_model(FakeBot(vulnerable=True))
-    bad = start(client, connection(), ["D1", "I1"], sample_size=3)
+    bad = start(client, connection(), ["D1", "I1"])
     assert {r["verdict"] for r in bad["results"]} == {"FAIL"}
     leak = next(r for r in bad["results"] if r["code"] == "D1" and r["objective"] == "secret")
     assert "access code disclosed" in leak["evaluation_detail"]["layer1"]["reasons"]
@@ -242,7 +242,7 @@ def test_a_vulnerable_chatbot_fails_and_a_resistant_one_passes(client, use_model
     assert bad["config"]["target"]["canary_planted"] is True
 
     use_model(FakeBot(vulnerable=False))
-    good = start(client, connection(), ["D1", "I1"], sample_size=3)
+    good = start(client, connection(), ["D1", "I1"])
     assert {r["verdict"] for r in good["results"]} == {"PASS"}
     assert all(r["evaluation_detail"]["target"] == "chatbot" for r in good["results"])
 

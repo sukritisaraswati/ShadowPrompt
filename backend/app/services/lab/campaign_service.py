@@ -11,12 +11,20 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.db.models import Campaign, CampaignStatus, PayloadPack, Session, TestResult
+from app.db.models import (
+    Campaign,
+    CampaignStatus,
+    PayloadPack,
+    Session,
+    TestResult,
+    Verdict,
+)
 from app.schemas.common import PaginationMeta
 from app.schemas.lab import (
     CampaignOut,
     CampaignPage,
     CampaignSummaryOut,
+    GuidanceOut,
     LanguagePackSummary,
     LevelScoreOut,
     LevelSummary,
@@ -27,10 +35,12 @@ from app.schemas.lab import (
     RatingOut,
     SessionOut,
     TestResultOut,
+    TopFixOut,
     TrackScoreOut,
     TrackSummary,
 )
 from app.services.lab.custom_packs import CustomPack, build_payloads
+from app.services.lab.guidance import guidance_for, top_fixes
 from app.services.lab.payloads import (
     AVAILABLE_LEVELS,
     LEVEL_CODES,
@@ -197,6 +207,9 @@ def result_out(result: TestResult, payload: Payload | None) -> TestResultOut:
         evaluation_detail=result.evaluation_detail,
         latency_ms=result.latency_ms,
         created_at=result.created_at,
+        guidance=GuidanceOut(**guidance_for(payload).as_dict())
+        if payload is not None and result.verdict in (Verdict.FAIL, Verdict.PARTIAL)
+        else None,
     )
 
 
@@ -243,6 +256,12 @@ def _as_sent(result: TestResult, payload: Payload | None) -> Payload | None:
 def campaign_out(campaign: Campaign, library: PayloadLibrary) -> CampaignOut:
     results = sorted(campaign.test_results, key=lambda r: (r.created_at, r.payload_id))
     resolve = payload_resolver(campaign, library)
+    failed = [
+        payload
+        for r in results
+        if r.verdict in (Verdict.FAIL, Verdict.PARTIAL)
+        and (payload := resolve(r.payload_id)) is not None
+    ]
     level_scores = []
     for ls in _level_scores(campaign):
         code = level_code(ls.track, ls.level)
@@ -266,6 +285,7 @@ def campaign_out(campaign: Campaign, library: PayloadLibrary) -> CampaignOut:
         error_message=campaign.error_message,
         current_level=current_level,
         level_scores=level_scores,
+        top_fixes=[TopFixOut(**fix) for fix in top_fixes(failed)],
         results=[result_out(r, _as_sent(r, resolve(r.payload_id))) for r in results],
     )
 

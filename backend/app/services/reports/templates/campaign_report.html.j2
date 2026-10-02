@@ -82,6 +82,19 @@
     </tbody>
   </table>
 
+  {% if campaign.top_fixes %}
+  <h2>What to fix first</h2>
+  <p class="muted">The fixes that address the most failures, with harder levels counting for more. Re-run the campaign after each change.</p>
+  {% for fix in campaign.top_fixes %}
+  <div class="test">
+    <h3>{{ loop.index }}. {{ fix.title }} <span class="muted">({{ fix.failed_tests }} {{ "test" if fix.failed_tests == 1 else "tests" }})</span></h3>
+    <p>{{ fix.why }}</p>
+    <ul>{% for item in fix.fixes %}<li>{{ item }}</li>{% endfor %}</ul>
+    {% if fix.prompt_snippet %}<div class="label">Suggested system prompt wording</div><pre>{{ fix.prompt_snippet }}</pre>{% endif %}
+  </div>
+  {% endfor %}
+  {% endif %}
+
   <h2>Detailed findings</h2>
   {% if failures %}
     {% for r in failures %}
@@ -93,6 +106,7 @@
       <pre>{{ r.response_summary or "" }}</pre>
       <div class="label">Why</div>
       <div>{% for reason in (r.evaluation_detail or {}).get("layer1", {}).get("reasons", []) + (r.evaluation_detail or {}).get("layer2", {}).get("reasons", []) %}{{ reason }}{% if not loop.last %}; {% endif %}{% endfor %}</div>
+      {% if r.guidance %}<div class="label">How to fix</div><div>{{ r.guidance.title }}: {{ r.guidance.fixes[0] }}</div>{% endif %}
     </div>
     {% endfor %}
   {% else %}

@@ -11,7 +11,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { toApiError } from "@/api/client";
 import { PROVIDER_LABELS, downloadCampaignReport, getCampaign } from "@/api/lab";
-import { ACTIVE_STATUSES, type ApiError, type Campaign, type TestResult, type Verdict } from "@/api/types";
+import { ACTIVE_STATUSES, type ApiError, type Campaign, type TestResult, type TopFix, type Verdict } from "@/api/types";
 import ErrorAlert from "@/components/ErrorAlert";
 import ReportButtons from "@/components/ReportButtons";
 import { ScoreDial, SeverityBadge } from "@/components/Severity";
@@ -103,7 +103,55 @@ function ResultCard({ result }: { result: TestResult }) {
           {reasons(result).join("; ")}
         </p>
       )}
+      {result.guidance && (
+        <details className="mt-3 rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+          <summary className="cursor-pointer font-medium">How to fix: {result.guidance.title}</summary>
+          <p className="mt-2 text-slate-600 dark:text-slate-300">{result.guidance.why}</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {result.guidance.fixes.map((fix) => (
+              <li key={fix}>{fix}</li>
+            ))}
+          </ul>
+        </details>
+      )}
     </article>
+  );
+}
+
+function TopFixes({ fixes }: { fixes: TopFix[] }) {
+  return (
+    <section>
+      <h2 className="text-xl font-semibold">What to fix first</h2>
+      <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+        The fixes that address the most failures, with harder levels counting for more. Re-run the campaign after each
+        change to confirm it worked.
+      </p>
+      <ol className="mt-3 space-y-3">
+        {fixes.map((fix, index) => (
+          <li key={fix.key} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800" data-testid="top-fix">
+            <div className="flex flex-wrap items-baseline gap-x-3">
+              <span className="font-bold text-accent-500">{index + 1}</span>
+              <h3 className="font-semibold">{fix.title}</h3>
+              <span className="text-sm text-slate-500">
+                {fix.failed_tests} {fix.failed_tests === 1 ? "failed test" : "failed tests"}
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{fix.why}</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+              {fix.fixes.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+            {fix.prompt_snippet && (
+              <>
+                <h4 className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Suggested system prompt wording</h4>
+                <pre className="evidence mt-1">{fix.prompt_snippet}</pre>
+              </>
+            )}
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -249,6 +297,8 @@ export default function Results() {
           </table>
         </div>
       </section>
+
+      {(campaign.top_fixes ?? []).length > 0 && <TopFixes fixes={campaign.top_fixes ?? []} />}
 
       <section>
         <div className="flex flex-wrap items-center gap-2">

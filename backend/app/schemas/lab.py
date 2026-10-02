@@ -173,6 +173,21 @@ class LevelScoreOut(BaseModel):
     score: float | None
 
 
+class GuidanceOut(BaseModel):
+    """Why an attack worked and what to change."""
+
+    key: str
+    title: str
+    why: str
+    fixes: list[str]
+    prompt_snippet: str | None = None
+
+
+class TopFixOut(GuidanceOut):
+    failed_tests: int
+    examples: list[str]
+
+
 class TestResultOut(BaseModel):
     id: uuid.UUID
     payload_id: str
@@ -196,6 +211,8 @@ class TestResultOut(BaseModel):
     evaluation_detail: dict | None
     latency_ms: int | None
     created_at: datetime
+    # For failed and partial results: why the attack worked and what to change.
+    guidance: GuidanceOut | None = None
 
 
 class SessionOut(BaseModel):
@@ -233,6 +250,8 @@ class CampaignOut(CampaignSummaryOut):
     # The level code being run, e.g. "D2", while the campaign is active.
     current_level: str | None
     level_scores: list[LevelScoreOut]
+    # The fixes that address the most failures, most important first.
+    top_fixes: list[TopFixOut] = Field(default_factory=list)
     results: list[TestResultOut]
 
 

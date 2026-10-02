@@ -355,6 +355,20 @@ export type CampaignEvent =
   | { type: "done"; status: CampaignStatus; overall_score?: number | null; error?: string | null }
   | { type: "resync" };
 
+/** Why an attack worked and what to change. */
+export interface Guidance {
+  key: string;
+  title: string;
+  why: string;
+  fixes: string[];
+  prompt_snippet: string | null;
+}
+
+export interface TopFix extends Guidance {
+  failed_tests: number;
+  examples: string[];
+}
+
 export interface TestResult {
   id: string;
   payload_id: string;
@@ -379,6 +393,8 @@ export interface TestResult {
   evaluation_detail: EvaluationDetail | null;
   latency_ms: number | null;
   created_at: string;
+  /** For failed and partial results. */
+  guidance?: Guidance | null;
 }
 
 export interface TrackScore {
@@ -416,6 +432,8 @@ export interface Campaign extends CampaignSummary {
   /** Level code being run, e.g. "D2". */
   current_level: string | null;
   level_scores: LevelScore[];
+  /** The fixes that address the most failures, most important first. */
+  top_fixes?: TopFix[];
   results: TestResult[];
 }
 
