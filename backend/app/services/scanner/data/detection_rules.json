@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "categories": {
     "instruction_override": {
       "label": "Instruction override",
@@ -88,6 +88,17 @@
       "patterns": [
         "\\b(?:attention|note\\s+(?:to|for)|instructions?\\s+for|message\\s+(?:to|for)|dear|hey|hello)\\s+(?:the\\s+|any\\s+|all\\s+)?(?:ai|a\\.i\\.|assistants?|language\\s+models?|llms?|chatbots?|ai\\s+agents?|gpt|claude)\\b",
         "\\bif\\s+you\\s+are\\s+(?:an?\\s+)?(?:ai|llm|large\\s+language\\s+model|language\\s+model|ai\\s+assistant|ai\\s+agent|chatbot)\\b"
+      ]
+    },
+    {
+      "id": "instruction_override.replace_task",
+      "category": "instruction_override",
+      "description": "Replaces the task the model was given with a different output.",
+      "weight": 20,
+      "case_sensitive": false,
+      "patterns": [
+        "\\binstead\\s+of\\s+(?:a|an|the|your|any)\\s+(?:summary|summari[sz]ing|answer|response|reply|translation|review|description)\\b[^.]{0,40}?\\b(?:reply|respond|answer|output|say|write|print|return)\\b",
+        "\\b(?:do\\s+not|don'?t)\\s+summari[sz]e\\b[^.]{0,40}?\\b(?:instead|just|only)\\b"
       ]
     },
     {
@@ -265,6 +276,17 @@
         "\\b(?:hide|conceal)\\s+(?:this|these|the)\\s+(?:instructions?|message|text|actions?)\\b",
         "\\bkeep\\s+(?:this|these|it)\\s+(?:instructions?\\s+)?(?:a\\s+)?secret\\b",
         "\\bdo\\s+not\\s+(?:mention|acknowledge|reference|reveal)\\s+(?:these|this|the)\\s+(?:instructions?|message|directive)\\b"
+      ]
+    },
+    {
+      "id": "stealth_instruction.decode_and_follow",
+      "category": "stealth_instruction",
+      "description": "Asks the model to decode hidden text and act on it.",
+      "weight": 20,
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:decode|decrypt|unscramble|reverse|translate)\\b(?:\\s+[\\w'’-]+){0,4}?\\s+(?:and|then)\\s+(?:follow|execute|obey|run|carry\\s+out|do\\s+(?:what|as))\\b",
+        "\\b(?:follow|execute|obey|carry\\s+out)\\s+(?:the\\s+)?(?:decoded|hidden|encoded)\\s+(?:instructions?|text|message|commands?)\\b"
       ]
     },
     {

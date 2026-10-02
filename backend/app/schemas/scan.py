@@ -29,6 +29,10 @@ class FindingOut(BaseModel):
     locator: str | None
     # Raw text from a hostile page. Clients must render it as text, never markup.
     evidence_text: str
+    # Set when the text had to be decoded or reassembled before a rule matched,
+    # e.g. "base64". The evidence is then the decoded text.
+    obfuscation: str | None = None
+    obfuscation_label: str | None = None
     risk_weight: int
     impact: str | None
     remediation: str | None

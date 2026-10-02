@@ -3,7 +3,9 @@
 How a score is built:
 
 1. Each detection contributes ``rule weight x source multiplier``. Hidden
-   locations carry larger multipliers than visible text.
+   locations carry larger multipliers than visible text. Text that had to be
+   decoded or reassembled before a rule matched is multiplied again by 1.25,
+   because encoding an instruction is itself a sign of intent to evade.
 2. Repeats within a category have diminishing returns. The strongest counts
    in full, the next half, the next a quarter, and so on, so a page cannot
    reach Critical by repeating one weak phrase.
@@ -30,6 +32,7 @@ MULTI_VECTOR_BONUS = 10
 MULTI_VECTOR_BONUS_CAP = 20
 MIN_SCORE_WITH_FINDINGS = 21
 MAX_SCORE = 100
+OBFUSCATION_MULTIPLIER = 1.25
 
 
 @dataclass(frozen=True)
@@ -76,7 +79,10 @@ SEVERITY_GUIDANCE: dict[Severity, SeverityGuidance] = {
 
 def contribution(detection: Detection) -> float:
     """Points a single detection is worth before diminishing returns."""
-    return detection.rule.weight * SOURCE_INFO[detection.segment.source].multiplier
+    points = detection.rule.weight * SOURCE_INFO[detection.segment.source].multiplier
+    if detection.transform:
+        points *= OBFUSCATION_MULTIPLIER
+    return points
 
 
 def compute_score(detections: Sequence[Detection]) -> int:

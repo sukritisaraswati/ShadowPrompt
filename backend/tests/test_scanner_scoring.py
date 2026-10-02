@@ -108,5 +108,5 @@ def test_multi_vector_page_outscores_every_single_source_page() -> None:
 
     multi = scan_document(load_demo_content("multi_vector")).score
     for demo_id, page in DEMO_PAGES.items():
-        if demo_id != "multi_vector":
+        if page.expected_findings <= 1:
             assert scan_document(load_demo_content(demo_id)).score < multi, page.filename

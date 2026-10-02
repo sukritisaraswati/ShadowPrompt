@@ -1,4 +1,4 @@
-"""The ShadowScan Demo Lab: eight crafted pages served from fixed content.
+"""The ShadowScan Demo Lab: nine crafted pages served from fixed content.
 
 Page ids are looked up in a fixed mapping and never joined into a filesystem
 path, so a request for ``../../etc/passwd`` simply finds nothing.
@@ -100,6 +100,17 @@ DEMO_PAGES: dict[str, DemoPage] = {
             "Multi-vector attack",
             "Comment, meta tag and hidden element",
             "Three injection techniques on one page at once, the pattern of a deliberate attack.",
+            3,
+            Severity.CRITICAL,
+        ),
+        DemoPage(
+            "encoded_injection",
+            "encoded_injection.html",
+            "Encoded and split instructions",
+            "Base64, look-alike letters and split text",
+            "Three instructions a plain keyword scan misses: one Base64-encoded in a data "
+            "attribute, one spelled with Cyrillic look-alike letters, and one split across "
+            "two ARIA labels.",
             3,
             Severity.CRITICAL,
         ),

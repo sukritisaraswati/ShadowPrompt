@@ -20,8 +20,19 @@ built. ShadowScan scans a page for content that could manipulate an LLM. The Lab
 attacks a connected model across all five levels, including indirect injection
 through web pages and multi-turn chains, streams verdicts live, settles unclear
 results with a judge model, and exports HTML and PDF reports. Campaign and scan
-history and model comparison round it out. Phase 4 adds wider coverage and
-integrations.
+history and model comparison round it out.
+
+**Phase 4 (Advanced Features) is in progress**, one independent package at a time:
+
+| Package | Status |
+| --- | --- |
+| 4.3 Obfuscation decoding | Complete |
+| 4.2 Multilingual coverage | Not started |
+| 4.1 Local models | Not started |
+| 4.7 Custom payload upload | Not started |
+| 4.5 CLI and GitHub Action | Not started |
+| 4.4 JavaScript-rendered scanning | Not started |
+| 4.6 Browser extension | Not started |
 
 | Phase | Scope | Status |
 | --- | --- | --- |
@@ -29,7 +40,7 @@ integrations.
 | 1 | ShadowScan MVP: 13 extractors, 7 detection categories, risk scoring, SSRF-safe fetch, HTML reports, 8 demo pages | Complete |
 | 2 | Lab Core: LLM proxy, payload library levels 1-3, evaluation layers 1-2, campaign orchestration | Complete |
 | 3 | Full Platform: level 4 indirect injection, level 5 chained attacks, layer 3 evaluator, live streaming, PDF reports, history, comparison, hardened self-hosting | Complete |
-| 4 | Advanced: local models, multilingual payloads, CI/CD plugin, browser extension, custom payloads | Not started |
+| 4 | Advanced: obfuscation decoding, multilingual coverage, local models, custom payloads, CI/CD, JavaScript rendering, browser extension | In progress |
 
 The full plan is in [docs/ShadowPrompt_Project_Blueprint_v2.docx](docs/ShadowPrompt_Project_Blueprint_v2.docx).
 
@@ -39,7 +50,7 @@ The full plan is in [docs/ShadowPrompt_Project_Blueprint_v2.docx](docs/ShadowPro
 
 Open the app and choose **ShadowScan**. Then either paste a public URL, upload an
 `.html` or `.htm` file of up to 2 MB, or open the **Demo Lab** and scan one of the
-eight crafted pages. The API is equally usable on its own:
+nine crafted pages. The API is equally usable on its own:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/scan/url      -H "Content-Type: application/json" -d '{"url": "https://example.com"}'
@@ -62,12 +73,22 @@ curl -X POST http://127.0.0.1:8000/api/v1/scan/demo-pages/multi_vector/scan
 3. **Normalisation.** Unicode compatibility forms, zero-width characters, soft
    hyphens and bidirectional controls are removed, so trivially obfuscated
    keywords still match.
-4. **Detection.** 31 rules across 7 categories: instruction override, data
+4. **Decoding.** Each piece of text is also read in decoded form, so instructions
+   hidden from a keyword scan are still found: Base64, hexadecimal, `\x` and `\u`
+   escapes, HTML character references, URL encoding, ROT13, reversed text,
+   leetspeak, letters split by punctuation (`i.g.n.o.r.e`), and Cyrillic or Greek
+   look-alike letters mixed into Latin text. Layered encodings, such as Base64
+   around ROT13, are unwrapped too. Short hidden fragments that sit next to each
+   other are also read together, which catches one instruction split across
+   several elements. Findings recovered this way say how they were decoded.
+   Binary data, hashes and non-Latin prose are left alone.
+5. **Detection.** 33 rules across 7 categories: instruction override, data
    exfiltration, unauthorised action, persona override, stealth instruction,
    context injection, and chained payload setup. Rules live in
    `backend/app/services/scanner/data/detection_rules.json` and are validated at
    startup.
-5. **Scoring.** Each match is weighted by its rule and by where it was hidden.
+6. **Scoring.** Each match is weighted by its rule and by where it was hidden,
+   and by a further 1.25 if it had to be decoded or reassembled first.
    Repeats in one category have diminishing returns, matches spread over several
    locations earn a bonus, any match scores at least 21, and the total is capped
    at 100. The same page always gets the same score.
@@ -121,8 +142,8 @@ model fails.
 
 Level 4 and 5 attack pages are real HTML files in
 `backend/app/services/lab/data/attack_pages/`. Each result shows what ShadowScan
-finds on its page. It flags 43 of the 46 pages; the three it misses hide their
-instruction in Base64, the decoding gap planned for Phase 4.
+finds on its page. It flags all 46, including the three that hide their
+instruction in Base64, and says when it had to decode a page to do so.
 
 Level 5 conversations are live: only the user's turns are scripted, and each one
 is sent with the model's real earlier replies. A leak on any turn fails the test.
@@ -389,7 +410,8 @@ looked up in a fixed allowlist and never used as file paths.
 
 - Rule-based detection cannot catch every paraphrase or non-English injection.
 - Static HTML scanning misses content that JavaScript generates after page load.
-- Encoded payloads such as Base64 are not decoded yet. That arrives in Phase 4.
+- Common encodings are decoded, but encryption, a custom cipher, and letters
+  separated only by spaces (`i g n o r e`) are not.
 - Hidden content is recognised from inline styles, the `hidden` attribute, and
   simple class or id selectors in `<style>` blocks. External stylesheets are not
   fetched, so classes hidden only there are treated as visible.
@@ -401,8 +423,6 @@ looked up in a fixed allowlist and never used as file paths.
   by carrying them forward, but they do not branch on what the model said.
 - The Layer 3 judge is itself a model, so its blind spots can bias the verdicts
   it settles. Its rulings are labelled in results so they can be checked.
-- ShadowScan does not decode Base64 or other encodings, so the three
-  Base64-encoded Level 4 pages pass it unflagged. Decoding is planned for Phase 4.
 - The Docker Compose stack has not been run on the development machine, which has
   no Docker installed.
 - The evaluation engine cannot perfectly judge every response. Some verdicts need

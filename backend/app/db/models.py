@@ -265,6 +265,9 @@ class Finding(Base):
     locator: Mapped[str | None] = mapped_column(String(256))
     # Raw extracted text, escaped at output. Rendered as plain text only.
     evidence_text: Mapped[str] = mapped_column(Text, nullable=False)
+    # How the matched text was recovered, e.g. "base64" or "split"; null when
+    # it matched exactly as written on the page. Evidence is the decoded text.
+    obfuscation: Mapped[str | None] = mapped_column(String(64))
     risk_weight: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     impact: Mapped[str | None] = mapped_column(Text)
     remediation: Mapped[str | None] = mapped_column(Text)

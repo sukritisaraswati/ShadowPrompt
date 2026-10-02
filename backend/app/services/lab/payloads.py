@@ -149,6 +149,8 @@ class PageScan:
     severity: str
     sources: list[str]
     categories: list[str]
+    # Encodings ShadowScan had to undo to see the instruction, e.g. ["base64"].
+    decoded: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -156,6 +158,7 @@ class PageScan:
             "severity": self.severity,
             "sources": self.sources,
             "categories": self.categories,
+            "decoded": self.decoded,
         }
 
 
@@ -222,6 +225,7 @@ class Payload:
             severity=outcome.severity.value,
             sources=sorted({d.segment.source.value for d in outcome.detections}),
             categories=sorted({d.category.value for d in outcome.detections}),
+            decoded=sorted({d.transform for d in outcome.detections if d.transform}),
         )
 
 

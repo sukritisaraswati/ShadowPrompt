@@ -139,6 +139,10 @@ export interface Finding {
   locator: string | null;
   /** Hostile page content. Render as text only, never as markup. */
   evidence_text: string;
+  /** Set when the text was decoded or reassembled first, e.g. "base64". */
+  obfuscation?: string | null;
+  /** Human label for the transform, e.g. "Base64, then ROT13". */
+  obfuscation_label?: string | null;
   risk_weight: number;
   impact: string | null;
   remediation: string | null;
@@ -227,6 +231,8 @@ export interface PageScanSummary {
   severity: Severity;
   sources: string[];
   categories: string[];
+  /** Encodings ShadowScan undid to find the instruction, e.g. ["base64"]. */
+  decoded?: string[];
 }
 
 export interface JudgeOutcome {

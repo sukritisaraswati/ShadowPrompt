@@ -40,8 +40,8 @@ function Notes({ result }: { result: TestResult }) {
     const scan = detail.page_scan;
     notes.push(
       scan.score > 0
-        ? `ShadowScan rated this attack page ${scan.severity} (${scan.score}/100), finding it in: ${scan.sources.join(", ").replaceAll("_", " ")}.`
-        : "ShadowScan found nothing on this attack page: the instruction is encoded, a known scanner gap.",
+        ? `ShadowScan rated this attack page ${scan.severity} (${scan.score}/100), finding it in: ${scan.sources.join(", ").replaceAll("_", " ")}${scan.decoded?.length ? ` after decoding ${scan.decoded.join(", ").replaceAll(">", " then ")}` : ""}.`
+        : "ShadowScan found nothing on this attack page.",
     );
   }
   if (detail.layer3) {

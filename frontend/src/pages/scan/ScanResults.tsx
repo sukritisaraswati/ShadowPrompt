@@ -38,7 +38,14 @@ function FindingCard({ finding, index }: { finding: Finding; index: number }) {
 
       <p className="mt-1 text-xs text-slate-500">{finding.rule_description}</p>
 
-      <h4 className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Evidence</h4>
+      <h4 className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        Evidence
+        {finding.obfuscation_label && (
+          <span className="rounded bg-amber-100 px-1.5 py-0.5 normal-case tracking-normal text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
+            Decoded from {finding.obfuscation_label}
+          </span>
+        )}
+      </h4>
       <pre className="evidence mt-1" data-testid="evidence">
         {finding.evidence_text}
       </pre>

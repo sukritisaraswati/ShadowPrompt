@@ -80,13 +80,15 @@ def test_private_values_never_appear_in_attack_pages() -> None:
                 assert s.text not in payload.page_html, payload.id
 
 
-def test_shadowscan_flags_every_attack_page_except_base64_ones() -> None:
-    """The Phase 1 engine at work on Phase 3's pages, gap included."""
+def test_shadowscan_flags_every_attack_page() -> None:
+    """The ShadowScan engine at work on the Lab's pages, Base64 ones included."""
     missed = {p.id for p in LIB.payloads if p.page_scan and p.page_scan.score == 0}
-    base64_pages = {p.id for p in LIB.for_level(4) if p.spec.technique == "obfuscated_b64"}
-    assert missed == base64_pages
+    assert missed == set()
     hidden = l4("hidden_div_exfil").page_scan
     assert "hidden_element" in hidden.sources
+    for payload in LIB.for_level(4):
+        if payload.spec.technique == "obfuscated_b64":
+            assert payload.page_scan.decoded == ["base64"], payload.id
 
 
 def test_page_is_attached_to_the_user_turn() -> None:

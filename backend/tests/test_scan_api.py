@@ -70,7 +70,7 @@ def test_multi_vector_page_has_three_findings_and_highest_score(client) -> None:
     singles = [
         upload_demo(client, page.filename).json()["score"]
         for page in DEMO_PAGES.values()
-        if page.id not in {"multi_vector", "clean"}
+        if page.expected_findings == 1
     ]
     assert multi["score"] > max(singles)
     assert multi["score"] <= 100
@@ -202,7 +202,7 @@ async def test_raw_html_is_not_stored(client, db_session) -> None:
 
 def test_demo_pages_are_listed(client) -> None:
     pages = client.get("/api/v1/scan/demo-pages").json()
-    assert len(pages) == 8
+    assert len(pages) == 9
     assert {p["id"] for p in pages} == set(DEMO_PAGES)
 
 

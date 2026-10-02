@@ -62,7 +62,7 @@
         <td>{{ loop.index }}</td>
         <td>{{ f.source_label }}</td>
         <td>{{ f.category_label }}</td>
-        <td><pre class="evidence">{{ f.evidence_text }}</pre></td>
+        <td>{% if f.obfuscation_label %}<span class="muted">Decoded from {{ f.obfuscation_label }}:</span>{% endif %}<pre class="evidence">{{ f.evidence_text }}</pre></td>
         <td>{{ f.impact }}</td>
         <td>{{ f.remediation }}</td>
       </tr>

@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 from app.db.models import Finding, ScanResult, ScanSourceKind, Severity
 from app.schemas.common import PaginationMeta
 from app.schemas.scan import FindingOut, ScanPage, ScanResultOut, ScanSummary, SeverityInfo
+from app.services.scanner.deobfuscate import transform_label
 from app.services.scanner.pipeline import ScanOutcome
 from app.services.scanner.rules import Category, get_rules
 from app.services.scanner.scoring import SEVERITY_GUIDANCE, contribution
@@ -23,7 +24,9 @@ LIMITATIONS = [
     "Detection is rule-based. Paraphrased, novel, or non-English injections can go unnoticed.",
     "Only the static HTML is analysed. "
     "Content added by JavaScript after the page loads is not seen.",
-    "Encoded or obfuscated payloads, such as Base64, are not decoded in this release.",
+    "Common encodings are decoded (Base64, hex, escapes, URL encoding, ROT13, reversed text, "
+    "leetspeak, look-alike letters, and text split across elements). Encryption or a custom "
+    "cipher is not.",
     "A clean result does not certify a page as safe. It means no configured rule matched.",
 ]
 
@@ -63,6 +66,7 @@ async def save_scan(
             matched_rule=d.rule.id,
             locator=d.segment.locator,
             evidence_text=d.evidence,
+            obfuscation=d.transform,
             risk_weight=round(contribution(d)),
             impact=rules.categories[d.category].impact,
             remediation=rules.categories[d.category].remediation,
@@ -155,6 +159,8 @@ def finding_out(finding: Finding) -> FindingOut:
         rule_description=_rule_description(finding.matched_rule),
         locator=finding.locator,
         evidence_text=finding.evidence_text,
+        obfuscation=finding.obfuscation,
+        obfuscation_label=transform_label(finding.obfuscation) if finding.obfuscation else None,
         risk_weight=finding.risk_weight,
         impact=finding.impact,
         remediation=finding.remediation,
