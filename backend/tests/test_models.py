@@ -83,9 +83,7 @@ async def test_lab_campaign_round_trip(db_session) -> None:
     assert loaded.evaluation_detail["layer"] == 1
     assert loaded.level == 2
 
-    loaded_campaign = await db_session.scalar(
-        select(Campaign).where(Campaign.id == campaign.id)
-    )
+    loaded_campaign = await db_session.scalar(select(Campaign).where(Campaign.id == campaign.id))
     assert loaded_campaign is not None
     assert loaded_campaign.levels_run == [1, 2, 3]
     assert loaded_campaign.status is CampaignStatus.RUNNING
@@ -141,9 +139,7 @@ async def test_findings_cascade_when_a_scan_is_deleted(db_session) -> None:
     await db_session.delete(scan)
     await db_session.flush()
 
-    remaining = (
-        await db_session.scalars(select(Finding).where(Finding.scan_id == scan_id))
-    ).all()
+    remaining = (await db_session.scalars(select(Finding).where(Finding.scan_id == scan_id))).all()
     assert remaining == []
 
 

@@ -37,9 +37,7 @@ class Settings(BaseSettings):
     database_echo: bool = False
 
     # --- CORS ---
-    cors_origins: list[str] = Field(
-        default=["http://localhost:5173", "http://127.0.0.1:5173"]
-    )
+    cors_origins: list[str] = Field(default=["http://localhost:5173", "http://127.0.0.1:5173"])
 
     # --- Layer 3 meta-evaluator (Release 3) ---
     anthropic_api_key: str | None = None

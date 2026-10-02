@@ -85,9 +85,7 @@ def _register_error_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(StarletteHTTPException)
-    async def http_exception_handler(
-        request: Request, exc: StarletteHTTPException
-    ) -> JSONResponse:
+    async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         code = ErrorCode.NOT_FOUND if exc.status_code == 404 else ErrorCode.INTERNAL_ERROR
         if exc.status_code == 429:
             code = ErrorCode.RATE_LIMITED
@@ -114,9 +112,7 @@ def _register_error_handlers(app: FastAPI) -> None:
         # The traceback goes to the (redacting) logger; the client gets nothing
         # that could reveal configuration, paths or credentials.
         logger.exception("Unhandled error on %s %s", request.method, request.url.path)
-        body = ErrorResponse(
-            code=ErrorCode.INTERNAL_ERROR, message="An internal error occurred"
-        )
+        body = ErrorResponse(code=ErrorCode.INTERNAL_ERROR, message="An internal error occurred")
         return JSONResponse(status_code=500, content=body.model_dump(mode="json"))
 
 

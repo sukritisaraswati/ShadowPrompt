@@ -154,6 +154,4 @@ def connect_rate_limit(request: Request) -> None:
 
 def campaign_rate_limit(request: Request) -> None:
     """Campaign launches per client per hour (blueprint 10.5)."""
-    _enforce(
-        request, "campaign", get_settings().rate_limit_campaigns_per_hour, 3600.0, "campaigns"
-    )
+    _enforce(request, "campaign", get_settings().rate_limit_campaigns_per_hour, 3600.0, "campaigns")

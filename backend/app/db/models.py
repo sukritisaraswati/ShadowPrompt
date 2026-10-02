@@ -120,9 +120,7 @@ class Session(Base):
 
     __tablename__ = "sessions"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, nullable=False, index=True
     )
@@ -141,9 +139,7 @@ class Campaign(Base):
 
     __tablename__ = "campaigns"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("sessions.id", ondelete="CASCADE"),
@@ -152,9 +148,7 @@ class Campaign(Base):
     # Which of levels 1-5 were selected for this run, e.g. [1, 2, 3].
     levels_run: Mapped[list[int]] = mapped_column(JSON, nullable=False, default=list)
     overall_score: Mapped[float | None] = mapped_column(Float, nullable=True)
-    total_tests: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, server_default="0"
-    )
+    total_tests: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     # Run settings such as sample size, timeout and retries. Never credentials.
     config: Mapped[dict | None] = mapped_column(JSON)
     # Per-level pass, partial, fail and unclear counts with each level's score.
@@ -183,9 +177,7 @@ class TestResult(Base):
 
     __tablename__ = "test_results"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     campaign_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("campaigns.id", ondelete="CASCADE"),
@@ -208,9 +200,7 @@ class TestResult(Base):
 
     campaign: Mapped[Campaign] = relationship(back_populates="test_results")
 
-    __table_args__ = (
-        Index("ix_test_results_campaign_level", "campaign_id", "level"),
-    )
+    __table_args__ = (Index("ix_test_results_campaign_level", "campaign_id", "level"),)
 
 
 # --------------------------------------------------------------------------- #
@@ -223,9 +213,7 @@ class ScanResult(Base):
 
     __tablename__ = "scan_results"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     source_kind: Mapped[ScanSourceKind] = mapped_column(
         _enum(ScanSourceKind, "scan_source_kind"),
         nullable=False,
@@ -259,9 +247,7 @@ class Finding(Base):
 
     __tablename__ = "findings"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     scan_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("scan_results.id", ondelete="CASCADE"),
@@ -298,17 +284,11 @@ class Report(Base):
 
     __tablename__ = "reports"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    type: Mapped[ReportType] = mapped_column(
-        _enum(ReportType, "report_type"), nullable=False
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    type: Mapped[ReportType] = mapped_column(_enum(ReportType, "report_type"), nullable=False)
     # Campaign id or scan id, depending on ``type``. Not a DB-level foreign key
     # because it points at one of two tables.
-    reference_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), nullable=False, index=True
-    )
+    reference_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, index=True)
     format: Mapped[ReportFormat] = mapped_column(
         _enum(ReportFormat, "report_format"), nullable=False
     )
