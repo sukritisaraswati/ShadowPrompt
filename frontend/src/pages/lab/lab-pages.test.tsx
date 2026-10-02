@@ -104,6 +104,8 @@ function renderAt(path: string, pattern: string, element: React.ReactElement) {
 
 beforeEach(() => {
   delete (window as unknown as { __labPwned?: boolean }).__labPwned;
+  // A hosted deployment by default: local endpoints are off.
+  vi.spyOn(labApi, "getCapabilities").mockResolvedValue({ local_endpoints_allowed: false, judge_enabled: false });
 });
 
 // --------------------------------------------------------------------------
@@ -125,6 +127,37 @@ describe("Connect", () => {
     await userEvent.selectOptions(screen.getByLabelText(/^provider$/i), "anthropic");
     expect(screen.getByLabelText(/base url/i)).toHaveValue("https://api.anthropic.com");
     expect(screen.getByLabelText(/api format/i)).toHaveValue("anthropic");
+  });
+
+  it("explains that local models need a self-hosted server, and blocks the test", async () => {
+    const spy = vi.spyOn(labApi, "testConnection");
+    renderAt("/lab/connect", "/lab/connect", <Connect />);
+    await userEvent.selectOptions(screen.getByLabelText(/^provider$/i), "ollama");
+
+    expect(screen.getByLabelText(/base url/i)).toHaveValue("http://localhost:11434/v1");
+    expect(screen.getByLabelText(/api key/i).closest("div")).toHaveTextContent(/optional/i);
+    expect(await screen.findByRole("note")).toHaveTextContent(/LLM_ALLOW_PRIVATE_ENDPOINTS=true/);
+    expect(screen.getByRole("button", { name: /test connection/i })).toBeDisabled();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("lets a self-hosted server test a local model without a key", async () => {
+    vi.spyOn(labApi, "getCapabilities").mockResolvedValue({ local_endpoints_allowed: true, judge_enabled: false });
+    const spy = vi.spyOn(labApi, "testConnection").mockResolvedValue({
+      session_id: "session-local",
+      provider: "openai_compatible",
+      model_name: "llama3.2",
+      endpoint_host: "localhost",
+      latency_ms: 900,
+      reply_preview: "OK",
+    });
+    renderAt("/lab/connect", "/lab/connect", <Connect />);
+    await userEvent.selectOptions(screen.getByLabelText(/^provider$/i), "lmstudio");
+
+    await waitFor(() => expect(screen.getByRole("note")).toHaveTextContent(/host.docker.internal/));
+    await userEvent.click(screen.getByRole("button", { name: /test connection/i }));
+    expect(await screen.findByText(/connected to llama3.2/i)).toBeInTheDocument();
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({ baseUrl: "http://localhost:1234/v1", apiKey: undefined }));
   });
 
   it("connects, clears the key from the form, and never stores it", async () => {
@@ -173,7 +206,8 @@ describe("Connect", () => {
 
 describe("Configure", () => {
   it("asks for a connection first", () => {
-    vi.spyOn(labApi, "getPayloadSummary").mockResolvedValue(LIBRARY);
+    // Never settles, so no state update lands after the test ends.
+    vi.spyOn(labApi, "getPayloadSummary").mockReturnValue(new Promise(() => undefined));
     renderAt("/lab/configure", "/lab/configure", <Configure />);
     expect(screen.getByRole("link", { name: /connect a model/i })).toBeInTheDocument();
   });

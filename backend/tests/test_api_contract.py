@@ -21,6 +21,7 @@ LAB_ENDPOINTS = [
     ("POST", "/api/v1/lab/campaigns/{campaign_id}/resume"),
     ("POST", "/api/v1/lab/reports"),
     ("GET", "/api/v1/lab/payload-library/summary"),
+    ("GET", "/api/v1/lab/capabilities"),
 ]
 
 SCAN_ENDPOINTS = [

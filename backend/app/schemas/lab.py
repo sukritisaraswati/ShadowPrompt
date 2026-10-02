@@ -156,6 +156,15 @@ class CampaignPage(BaseModel):
     pagination: PaginationMeta
 
 
+class LabCapabilities(BaseModel):
+    """What this deployment allows, so the interface can explain its limits."""
+
+    # True only on self-hosted deployments with LLM_ALLOW_PRIVATE_ENDPOINTS set.
+    local_endpoints_allowed: bool
+    # True when the Layer 3 judge is configured and switched on.
+    judge_enabled: bool
+
+
 class LevelSummary(BaseModel):
     level: int
     name: str

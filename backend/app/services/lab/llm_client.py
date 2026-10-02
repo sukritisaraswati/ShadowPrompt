@@ -314,6 +314,25 @@ async def _read_capped(response: httpx.Response, limit: int) -> bytes:
 # --------------------------------------------------------------------------- #
 
 
+LOCAL_MODELS_HINT = (
+    "This address is on a private or local network. Local models such as Ollama, "
+    "LM Studio or llama.cpp can be tested only on a self-hosted ShadowPrompt with "
+    "LLM_ALLOW_PRIVATE_ENDPOINTS=true."
+)
+
+
+def _explain_block(exc: AppError, allow_private: bool) -> AppError:
+    """Say how to test a local model when that is what was blocked.
+
+    Cloud metadata addresses and bad schemes stay blocked whatever the
+    setting, so they keep the plain message.
+    """
+    reason = exc.detail or ""
+    if allow_private or "metadata" in reason or "scheme" in reason:
+        return exc
+    return AppError(ErrorCode.BLOCKED_TARGET, LOCAL_MODELS_HINT, status_code=400, detail=reason)
+
+
 async def _attempt(
     client: httpx.AsyncClient,
     config: LlmConfig,
@@ -324,10 +343,12 @@ async def _attempt(
 ) -> tuple[str, bool]:
     wire = build_request(config, messages, settings.llm_max_output_tokens, compat=compat)
     allow_private = settings.llm_allow_private_endpoints
-    target = parse_target(wire.url, allow_private=allow_private)
     try:
+        target = parse_target(wire.url, allow_private=allow_private)
         address = await resolve_public(target, backend.resolver, allow_private=allow_private)
     except AppError as exc:
+        if exc.code == ErrorCode.BLOCKED_TARGET:
+            raise _explain_block(exc, allow_private) from exc
         if exc.code != ErrorCode.FETCH_FAILED:
             raise
         raise AppError(

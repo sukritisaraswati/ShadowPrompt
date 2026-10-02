@@ -32,6 +32,7 @@ from app.schemas.lab import (
     CampaignStarted,
     ConnectionIn,
     ConnectionTestOut,
+    LabCapabilities,
     PayloadLibrarySummary,
 )
 from app.services.lab import campaign_service
@@ -73,6 +74,20 @@ def _config(connection: ConnectionIn, *, timeout: float, retries: int) -> LlmCon
 
 def _not_found() -> AppError:
     return AppError(ErrorCode.NOT_FOUND, "Campaign not found.", status_code=404)
+
+
+@router.get(
+    "/capabilities",
+    response_model=LabCapabilities,
+    summary="What this deployment allows",
+)
+async def lab_capabilities() -> LabCapabilities:
+    """Whether local model endpoints and the Layer 3 judge are available here."""
+    settings = get_settings()
+    return LabCapabilities(
+        local_endpoints_allowed=settings.llm_allow_private_endpoints,
+        judge_enabled=settings.layer3_enabled and settings.anthropic_api_key is not None,
+    )
 
 
 @router.post(

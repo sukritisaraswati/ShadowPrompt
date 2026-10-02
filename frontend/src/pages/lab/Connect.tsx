@@ -6,12 +6,12 @@
  * never placed in the URL, storage, or the console.
  */
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
 import { toApiError } from "@/api/client";
-import { PROVIDER_LABELS, PROVIDER_PRESETS, testConnection } from "@/api/lab";
-import type { ApiError, ConnectionTestResult, LlmProvider } from "@/api/types";
+import { getCapabilities, PROVIDER_LABELS, PROVIDER_PRESETS, testConnection } from "@/api/lab";
+import type { ApiError, ConnectionTestResult, LabCapabilities, LlmProvider } from "@/api/types";
 import ErrorAlert from "@/components/ErrorAlert";
 import { describeConnection, useSession, type LlmConnection } from "@/context/SessionContext";
 
@@ -30,6 +30,18 @@ export default function Connect() {
   const [error, setError] = useState<ApiError | null>(null);
   const [result, setResult] = useState<ConnectionTestResult | null>(null);
   const [busy, setBusy] = useState(false);
+  const [capabilities, setCapabilities] = useState<LabCapabilities | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    // Only used to explain local presets; the backend enforces the rule anyway.
+    getCapabilities(controller.signal)
+      .then(setCapabilities)
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
+
+  const localBlocked = Boolean(preset.local && capabilities && !capabilities.local_endpoints_allowed);
 
   function choosePreset(id: string) {
     const next = PROVIDER_PRESETS.find((p) => p.id === id);
@@ -106,13 +118,37 @@ export default function Connect() {
             Provider
           </label>
           <select id="preset" value={presetId} onChange={(e) => choosePreset(e.target.value)} disabled={busy} className={INPUT}>
-            {PROVIDER_PRESETS.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.label}
-              </option>
-            ))}
+            <optgroup label="Hosted APIs">
+              {PROVIDER_PRESETS.filter((p) => !p.local).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Local models (self-hosted ShadowPrompt only)">
+              {PROVIDER_PRESETS.filter((p) => p.local).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </optgroup>
           </select>
         </div>
+
+        {preset.local && localBlocked && (
+          <div role="note" className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+            This ShadowPrompt server does not allow local endpoints, because letting a shared server
+            reach its own network would be a security hole. Run ShadowPrompt yourself and set{" "}
+            <code className="font-mono">LLM_ALLOW_PRIVATE_ENDPOINTS=true</code> to test models on your own machine.
+          </div>
+        )}
+        {preset.local && !localBlocked && (
+          <div role="note" className="rounded-md border border-slate-200 px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-300">
+            Start {preset.label} with its OpenAI-compatible server and load a model first. No API key is
+            needed. If ShadowPrompt runs in Docker, replace <code className="font-mono">localhost</code> with{" "}
+            <code className="font-mono">host.docker.internal</code>.
+          </div>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -169,7 +205,7 @@ export default function Connect() {
           </p>
         )}
 
-        <button type="submit" disabled={busy} className="rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-white hover:bg-accent-600 disabled:opacity-60">
+        <button type="submit" disabled={busy || localBlocked} className="rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-white hover:bg-accent-600 disabled:opacity-60">
           {busy ? "Testing connection…" : "Test connection"}
         </button>
       </form>

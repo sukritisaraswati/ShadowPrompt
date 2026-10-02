@@ -10,6 +10,7 @@ import type {
   CampaignStatus,
   CampaignSummary,
   ConnectionTestResult,
+  LabCapabilities,
   Page,
   PayloadLibrarySummary,
   ReportFormat,
@@ -117,6 +118,8 @@ export interface ProviderPreset {
   baseUrl: string;
   model: string;
   needsKey: boolean;
+  /** Runs on the user's own machine; needs a self-hosted ShadowPrompt. */
+  local?: boolean;
 }
 
 export const PROVIDER_PRESETS: ProviderPreset[] = [
@@ -128,7 +131,15 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   { id: "gemini", label: "Google Gemini", provider: "gemini", baseUrl: "https://generativelanguage.googleapis.com", model: "gemini-2.5-flash", needsKey: true },
   { id: "azure", label: "Azure OpenAI", provider: "azure_openai", baseUrl: "https://YOUR-RESOURCE.openai.azure.com/openai/deployments/YOUR-DEPLOYMENT", model: "deployment", needsKey: true },
   { id: "custom", label: "Custom OpenAI-compatible endpoint", provider: "openai_compatible", baseUrl: "", model: "", needsKey: false },
+  { id: "ollama", label: "Ollama", provider: "openai_compatible", baseUrl: "http://localhost:11434/v1", model: "llama3.2", needsKey: false, local: true },
+  { id: "lmstudio", label: "LM Studio", provider: "openai_compatible", baseUrl: "http://localhost:1234/v1", model: "local-model", needsKey: false, local: true },
+  { id: "llamacpp", label: "llama.cpp server", provider: "openai_compatible", baseUrl: "http://localhost:8080/v1", model: "local-model", needsKey: false, local: true },
 ];
+
+/** What this deployment allows (local endpoints, the Layer 3 judge). */
+export function getCapabilities(signal?: AbortSignal): Promise<LabCapabilities> {
+  return get<LabCapabilities>("/lab/capabilities", { signal });
+}
 
 export const PROVIDER_LABELS: Record<LlmConnection["provider"], string> = {
   openai_compatible: "OpenAI-compatible",

@@ -28,7 +28,7 @@ history and model comparison round it out.
 | --- | --- |
 | 4.3 Obfuscation decoding | Complete |
 | 4.2 Multilingual coverage | Complete |
-| 4.1 Local models | Not started |
+| 4.1 Local models | Complete |
 | 4.7 Custom payload upload | Not started |
 | 4.5 CLI and GitHub Action | Not started |
 | 4.4 JavaScript-rendered scanning | Not started |
@@ -114,7 +114,9 @@ curl -X POST http://127.0.0.1:8000/api/v1/scan/demo-pages/multi_vector/scan
    model name, and API key. One harmless message checks the connection before any
    attack is sent. Supported formats are OpenAI-compatible APIs (OpenAI, Groq,
    Together, OpenRouter, vLLM and others), Anthropic, Google Gemini, and Azure
-   OpenAI.
+   OpenAI. Presets for **Ollama**, **LM Studio** and the **llama.cpp server**
+   test models running on your own machine, with no API key. They work only on
+   a self-hosted ShadowPrompt (see [Testing local models](#testing-local-models)).
 2. **Configure.** Pick any of the five levels, any language packs, every test or
    a sample per level, and a timeout and retry count.
 3. **Run.** Verdicts stream in live. Pause between tests, resume, or stop at any
@@ -202,6 +204,31 @@ LAYER3_MAX_CALLS_PER_CAMPAIGN=40    # cost ceiling per campaign
 Transcripts full of jailbreak attempts can trip a judge model's own safety
 classifier, so requests opt into Anthropic's server-side refusal fallback, which
 retries a declined request on a recommended model.
+
+### Testing local models
+
+Ollama, LM Studio and the llama.cpp server all speak the OpenAI chat format, so
+the Lab tests them like any hosted API, with no key. They listen on your own
+machine, though, and a server that will contact local addresses on a user's
+say-so can be turned against its own network. So local endpoints are refused
+unless the deployment sets the self-hosting flag:
+
+```bash
+LLM_ALLOW_PRIVATE_ENDPOINTS=true
+```
+
+| Server | Start it with | Base URL |
+| --- | --- | --- |
+| Ollama | `ollama serve`, then `ollama pull llama3.2` | `http://localhost:11434/v1` |
+| LM Studio | Developer tab, start the local server | `http://localhost:1234/v1` |
+| llama.cpp | `llama-server -m model.gguf --port 8080` | `http://localhost:8080/v1` |
+
+From Docker Compose, use `host.docker.internal` in place of `localhost`. The flag
+opens loopback and private networks to the model proxy only: cloud metadata
+addresses stay blocked, and ShadowScan's page fetcher ignores the flag entirely.
+`GET /api/v1/lab/capabilities` reports whether it is on, and the Connect page
+explains why a local preset cannot be used when it is off. Local models are often
+slower, so raise the per-test timeout in campaign setup if tests time out.
 
 ### Trying the Lab without an API key
 

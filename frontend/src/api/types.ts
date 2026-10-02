@@ -313,6 +313,13 @@ export interface LevelSummary {
   available: boolean;
 }
 
+/** What this deployment allows. */
+export interface LabCapabilities {
+  /** True only on self-hosted deployments with LLM_ALLOW_PRIVATE_ENDPOINTS set. */
+  local_endpoints_allowed: boolean;
+  judge_enabled: boolean;
+}
+
 /** An opt-in pack of tests written in one language other than English. */
 export interface LanguagePackSummary {
   code: string;
