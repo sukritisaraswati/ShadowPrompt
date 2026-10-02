@@ -15,24 +15,26 @@ A defensive LLM security testing platform with two services under one roof.
 
 ## Project status
 
-**Phase 3 (Full Platform) is complete.** Every feature in the original blueprint is
-built. ShadowScan scans a page for content that could manipulate an LLM. The Lab
-attacks a connected model across all five levels, including indirect injection
-through web pages and multi-turn chains, streams verdicts live, settles unclear
-results with a judge model, and exports HTML and PDF reports. Campaign and scan
-history and model comparison round it out.
+**All four phases are complete.** ShadowScan scans a page for content that could
+manipulate an LLM, including encoded, split, non-English and script-injected
+instructions. The Lab attacks a connected model, hosted or local, across all five
+levels and eleven languages, with your own tests alongside the library. It
+streams verdicts live, settles unclear results with a judge model, and exports
+HTML and PDF reports. Campaign and scan history and model comparison round it
+out. Both services reach into existing workflows through a CLI, a GitHub Action
+and a browser extension.
 
-**Phase 4 (Advanced Features) is in progress**, one independent package at a time:
+Phase 4 added these, each shipped and tested on its own:
 
-| Package | Status |
+| Package | What it adds |
 | --- | --- |
-| 4.3 Obfuscation decoding | Complete |
-| 4.2 Multilingual coverage | Complete |
-| 4.1 Local models | Complete |
-| 4.7 Custom payload upload | Complete |
-| 4.5 CLI and GitHub Action | Complete |
-| 4.4 JavaScript-rendered scanning | Complete |
-| 4.6 Browser extension | Not started |
+| 4.1 Local models | Ollama, LM Studio and llama.cpp, behind a self-hosting flag |
+| 4.2 Multilingual coverage | Detection rules and Lab tests in ten more languages |
+| 4.3 Obfuscation decoding | Base64, hex, escapes, ROT13, leetspeak, look-alike letters and split payloads |
+| 4.4 JavaScript-rendered scanning | A network-sandboxed headless browser for script-added content |
+| 4.5 CLI and GitHub Action | Scans and campaigns in CI, failing the build below a threshold |
+| 4.6 Browser extension | Scan the page you are viewing from the toolbar |
+| 4.7 Custom payload upload | Teams' own tests, validated strictly, run alongside the library |
 
 | Phase | Scope | Status |
 | --- | --- | --- |
@@ -40,7 +42,7 @@ history and model comparison round it out.
 | 1 | ShadowScan MVP: 13 extractors, 7 detection categories, risk scoring, SSRF-safe fetch, HTML reports, 8 demo pages | Complete |
 | 2 | Lab Core: LLM proxy, payload library levels 1-3, evaluation layers 1-2, campaign orchestration | Complete |
 | 3 | Full Platform: level 4 indirect injection, level 5 chained attacks, layer 3 evaluator, live streaming, PDF reports, history, comparison, hardened self-hosting | Complete |
-| 4 | Advanced: obfuscation decoding, multilingual coverage, local models, custom payloads, CI/CD, JavaScript rendering, browser extension | In progress |
+| 4 | Advanced: obfuscation decoding, multilingual coverage, local models, custom payloads, CI/CD, JavaScript rendering, browser extension | Complete |
 
 The full plan is in [docs/ShadowPrompt_Project_Blueprint_v2.docx](docs/ShadowPrompt_Project_Blueprint_v2.docx).
 
@@ -399,6 +401,30 @@ a server and a stub model and runs the action against them.
 
 ---
 
+## Browser extension
+
+The ShadowScan extension for Chrome and Edge scans the page you are viewing.
+Because it reads the page as your browser shows it, anything its scripts added
+is included without server-side rendering.
+
+1. Open `chrome://extensions` (or `edge://extensions`), turn on **Developer
+   mode**, choose **Load unpacked**, and select the `extension/` folder.
+2. Open the extension's **Settings** and enter your ShadowPrompt address, for
+   example `http://localhost:8080`. The browser asks for permission to contact
+   that address and nothing else.
+3. On any web page, click the ShadowScan icon and **Scan this page**. The score,
+   severity and top findings appear in the popup, with a link to the full
+   result.
+
+It asks for as little as it can: `activeTab` and `scripting` read the current page
+only when you click Scan, `storage` keeps the address, and the server's origin
+is requested at runtime. There are no content scripts, no background worker and
+no standing access to any site. The page is sent only to the address you set,
+without cookies, and findings are always displayed as text. Pages over the 2 MB
+scan limit, and browser pages such as settings, cannot be scanned.
+
+---
+
 ## Requirements
 
 - Python 3.11 or newer
@@ -475,6 +501,7 @@ production.
 cd backend  && pytest && ruff check .
 cd frontend && npm run typecheck && npm test
 cd cli      && pytest && ruff check .
+cd extension && npm test
 ```
 
 Security-specific backend tests carry a marker, so they can be run alone:
@@ -519,6 +546,7 @@ frontend/
     pages/        route pages for both services
     test/         setup and render helpers
 cli/              the shadowprompt command for CI pipelines
+extension/        the ShadowScan browser extension (Manifest V3, no build step)
 action.yml        the GitHub Action wrapping the CLI
 docs/             the project blueprint
 ```

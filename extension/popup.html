@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ShadowScan</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <h1>ShadowScan</h1>
+    <a id="options-link" href="#">Settings</a>
+  </header>
+
+  <section id="setup" hidden>
+    <p>Set the address of your ShadowPrompt server first.</p>
+    <button id="open-options" type="button">Open settings</button>
+  </section>
+
+  <section id="ready" hidden>
+    <p class="muted">Checks this page for hidden instructions aimed at AI assistants. The page as
+      you see it, including anything its scripts added, is sent to
+      <span id="server-name"></span>.</p>
+    <button id="scan" type="button">Scan this page</button>
+  </section>
+
+  <p id="status" role="status" hidden></p>
+  <p id="error" role="alert" hidden></p>
+
+  <section id="result" hidden>
+    <div class="score">
+      <span id="score-value"></span>
+      <div>
+        <strong id="severity-label"></strong>
+        <p id="severity-action" class="muted"></p>
+      </div>
+    </div>
+    <ol id="findings"></ol>
+    <p id="more" class="muted" hidden></p>
+    <a id="report-link" href="#" target="_blank" rel="noreferrer">Open the full result</a>
+  </section>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

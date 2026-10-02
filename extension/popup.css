@@ -1,0 +1,107 @@
+:root {
+  --bg: #ffffff;
+  --fg: #0f172a;
+  --muted: #64748b;
+  --border: #e2e8f0;
+  --accent: #6d28d9;
+  --error: #b91c1c;
+  --evidence-bg: #f8fafc;
+  --on-accent: #ffffff;
+  --sev-clean: #15803d;
+  --sev-low: #a16207;
+  --sev-medium: #c2410c;
+  --sev-high: #b91c1c;
+  --sev-critical: #7f1d1d;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1020;
+    --fg: #e2e8f0;
+    --muted: #94a3b8;
+    --border: #1e293b;
+    --accent: #a78bfa;
+    --error: #f87171;
+    --evidence-bg: #111827;
+    --on-accent: #1e1b4b;
+    --sev-clean: #4ade80;
+    --sev-low: #facc15;
+    --sev-medium: #fb923c;
+    --sev-high: #f87171;
+    --sev-critical: #fca5a5;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  width: 360px;
+  margin: 0;
+  padding: 12px 14px 14px;
+  font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+header { display: flex; align-items: baseline; justify-content: space-between; }
+h1 { margin: 0 0 6px; font-size: 16px; }
+a { color: var(--accent); }
+.muted { color: var(--muted); }
+p { margin: 6px 0; }
+
+button {
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+button:disabled { opacity: 0.6; cursor: default; }
+
+#error { color: var(--error); }
+
+.score { display: flex; gap: 12px; align-items: center; margin: 8px 0; }
+#score-value {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 4px solid currentColor;
+  font-size: 18px;
+  font-weight: 700;
+  flex: none;
+}
+#score-value[data-severity="clean"] { color: var(--sev-clean); }
+#score-value[data-severity="low"] { color: var(--sev-low); }
+#score-value[data-severity="medium"] { color: var(--sev-medium); }
+#score-value[data-severity="high"] { color: var(--sev-high); }
+#score-value[data-severity="critical"] { color: var(--sev-critical); }
+#severity-action { margin: 2px 0 0; }
+
+ol { margin: 8px 0; padding-left: 18px; }
+li { margin-bottom: 8px; }
+.where { color: var(--muted); }
+.note {
+  display: inline-block;
+  margin-top: 2px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: #fef3c7;
+  color: #78350f;
+  font-size: 11px;
+}
+.evidence {
+  margin: 4px 0 0;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: var(--evidence-bg);
+  font: 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

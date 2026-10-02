@@ -198,3 +198,21 @@ jobs:
         run: |
           test -s reports/campaign.html
           python -c "import os, sys; sys.exit(0 if float(os.environ['SCORE']) >= 90 else 1)"
+
+  extension:
+    name: Browser extension (tests)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: extension
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Tests
+        run: npm test

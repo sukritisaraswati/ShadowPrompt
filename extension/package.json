@@ -1,0 +1,10 @@
+{
+  "name": "shadowscan-extension",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ShadowScan browser extension (Manifest V3). No build step and no dependencies.",
+  "scripts": {
+    "test": "node --test"
+  }
+}

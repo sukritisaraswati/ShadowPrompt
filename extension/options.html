@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ShadowScan settings</title>
+  <link rel="stylesheet" href="popup.css">
+  <style>body { width: auto; min-width: 360px; max-width: 520px; }</style>
+</head>
+<body>
+  <h1>ShadowScan settings</h1>
+  <form id="settings" novalidate>
+    <label for="server-url"><strong>ShadowPrompt address</strong></label>
+    <p class="muted">Where your ShadowPrompt app is served, for example
+      <code>http://localhost:8080</code> for the Docker install or
+      <code>http://localhost:5173</code> in development. Scanned pages are sent only here.</p>
+    <input id="server-url" type="url" spellcheck="false" autocomplete="off"
+      style="width: 100%; padding: 6px 8px; font: inherit;">
+    <button type="submit">Save</button>
+  </form>
+  <p id="status" role="status" hidden></p>
+  <p id="error" role="alert" hidden></p>
+  <script type="module" src="options.js"></script>
+</body>
+</html>

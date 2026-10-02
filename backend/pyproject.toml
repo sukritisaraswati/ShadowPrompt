@@ -1,13 +1,13 @@
 [project]
 name = "shadowprompt-backend"
-version = "0.4.0"
+version = "0.5.0"
 description = "ShadowPrompt - defensive LLM security testing lab (Lab + ShadowScan)"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "pydantic>=2.9",
-    "pydantic-settings>=2.6",
+    "pydantic-settings>=2.7",
     "sqlalchemy[asyncio]>=2.0.36",
     "alembic>=1.14",
     "aiosqlite>=0.20",

@@ -7,10 +7,12 @@ development). Nothing in here is ever logged verbatim -- see
 
 from __future__ import annotations
 
+import json
 from functools import lru_cache
+from typing import Annotated
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -37,7 +39,12 @@ class Settings(BaseSettings):
     database_echo: bool = False
 
     # --- CORS ---
-    cors_origins: list[str] = Field(default=["http://localhost:5173", "http://127.0.0.1:5173"])
+    # NoDecode: the environment gives a comma-separated string, which the
+    # validator below splits. Without it, pydantic-settings tries to parse the
+    # value as JSON first and refuses to start.
+    cors_origins: Annotated[list[str], NoDecode] = Field(
+        default=["http://localhost:5173", "http://127.0.0.1:5173"]
+    )
 
     # --- Layer 3 meta-evaluator (Release 3) ---
     anthropic_api_key: str | None = None
@@ -94,8 +101,10 @@ class Settings(BaseSettings):
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_origins(cls, value: object) -> object:
-        """Accept a comma-separated string from the environment."""
+        """Accept a comma-separated string, or a JSON list, from the environment."""
         if isinstance(value, str):
+            if value.strip().startswith("["):
+                return json.loads(value)
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
 
