@@ -26,6 +26,9 @@ class CampaignSettings:
     max_retries: int = 1
     poll_seconds: float = 2.0
     max_minutes: float = 120.0
+    # Set when the target is the user's own chatbot (provider "chatbot").
+    chatbot: dict | None = None
+    indirect_delivery: str = "inline"
 
 
 @dataclass
@@ -40,6 +43,9 @@ class CampaignOutcome:
     failures: list[dict]
     unclear: int
     error: str | None = None
+    track_scores: list[dict] = field(default_factory=list)
+    top_fixes: list[dict] = field(default_factory=list)
+    skipped: dict[str, int] = field(default_factory=dict)
 
     def as_dict(self) -> dict:
         return {
@@ -50,22 +56,32 @@ class CampaignOutcome:
             "total_tests": self.total,
             "completed_tests": self.completed,
             "unclear": self.unclear,
+            "track_scores": [
+                {"track": t["track"], "score": t["score"]} for t in self.track_scores
+            ],
             "level_scores": [
-                {"level": ls["level"], "name": ls["name"], "score": ls["score"]}
+                {"level": ls.get("code", ls["level"]), "name": ls["name"], "score": ls["score"]}
                 for ls in self.level_scores
             ],
+            "top_fixes": [
+                {"title": f["title"], "failed_tests": f["failed_tests"]} for f in self.top_fixes
+            ],
+            "skipped": self.skipped,
             "failures": self.failures,
             "error": self.error,
         }
 
 
 def _connection(settings: CampaignSettings) -> dict:
-    return {
-        "provider": settings.provider,
+    connection = {
+        "provider": "chatbot" if settings.chatbot else settings.provider,
         "base_url": settings.base_url,
         "model": settings.model,
-        "api_key": settings.api_key,
+        "api_key": None if settings.chatbot else settings.api_key,
     }
+    if settings.chatbot:
+        connection["chatbot"] = settings.chatbot
+    return connection
 
 
 def upload_packs(client: Client, paths: list[str]) -> list[str]:
@@ -106,6 +122,7 @@ def run_campaign(
             "custom_pack_ids": pack_ids,
             "timeout_seconds": settings.timeout_seconds,
             "max_retries": settings.max_retries,
+            "indirect_delivery": settings.indirect_delivery,
         },
     )
     campaign_id = started["campaign_id"]
@@ -153,6 +170,9 @@ def run_campaign(
         failures=failures,
         unclear=sum(1 for r in results if r["verdict"] == "UNCLEAR"),
         error=campaign.get("error_message"),
+        track_scores=campaign.get("track_scores", []),
+        top_fixes=campaign.get("top_fixes", []),
+        skipped=((campaign.get("config") or {}).get("target") or {}).get("skipped", {}),
     )
 
 

@@ -46,6 +46,10 @@ inputs:
     description: "campaign: model or deployment name"
     required: false
     default: ""
+  chatbot-config:
+    description: "campaign: JSON file describing your own chatbot, used instead of base-url and model. Header values can read ${ENV_VARS} set on the step"
+    required: false
+    default: ""
   api-key:
     description: "campaign: the model API key. Pass a secret; it is handed to the CLI through an environment variable only"
     required: false
@@ -127,6 +131,7 @@ runs:
         SP_PROVIDER: ${{ inputs.provider }}
         SP_BASE_URL: ${{ inputs.base-url }}
         SP_MODEL: ${{ inputs.model }}
+        SP_CHATBOT: ${{ inputs.chatbot-config }}
         SHADOWPROMPT_LLM_API_KEY: ${{ inputs.api-key }}
         SP_LEVELS: ${{ inputs.levels }}
         SP_SAMPLE_SIZE: ${{ inputs.sample-size }}
@@ -150,12 +155,15 @@ runs:
             if [ "$SP_RENDER" = "true" ]; then args+=(--render); fi
             ;;
           campaign)
-            if [ -z "$SP_BASE_URL" ] || [ -z "$SP_MODEL" ]; then
-              echo "::error::The campaign command needs base-url and model."
+            if [ -n "$SP_CHATBOT" ]; then
+              args=(campaign --chatbot "$SP_CHATBOT")
+            elif [ -n "$SP_BASE_URL" ] && [ -n "$SP_MODEL" ]; then
+              args=(campaign --provider "$SP_PROVIDER" --base-url "$SP_BASE_URL" --model "$SP_MODEL")
+            else
+              echo "::error::The campaign command needs chatbot-config, or base-url and model."
               exit 2
             fi
-            args=(campaign --provider "$SP_PROVIDER" --base-url "$SP_BASE_URL" --model "$SP_MODEL"
-                  --levels "$SP_LEVELS" --min-score "$SP_MIN_SCORE" --max-minutes "$SP_MAX_MINUTES")
+            args+=(--levels "$SP_LEVELS" --min-score "$SP_MIN_SCORE" --max-minutes "$SP_MAX_MINUTES")
             if [ -n "$SP_SAMPLE_SIZE" ]; then args+=(--sample-size "$SP_SAMPLE_SIZE"); fi
             if [ -n "$SP_LANGUAGES" ]; then args+=(--languages "$SP_LANGUAGES"); fi
             if [ -n "$SP_REPORT" ]; then args+=(--report "$SP_REPORT"); fi

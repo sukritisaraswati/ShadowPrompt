@@ -22,6 +22,7 @@ from collections.abc import Sequence
 from shadowprompt_cli import __version__
 from shadowprompt_cli import campaign as campaign_cmd
 from shadowprompt_cli import scan as scan_cmd
+from shadowprompt_cli.chatbot import ChatbotFileError, load_chatbot
 from shadowprompt_cli.client import ApiError, Client
 
 EXIT_OK = 0
@@ -103,8 +104,13 @@ def build_parser() -> argparse.ArgumentParser:
         allow_abbrev=False,
     )
     camp.add_argument("--provider", choices=PROVIDERS, default="openai_compatible")
-    camp.add_argument("--base-url", required=True, help="the model API's base URL")
-    camp.add_argument("--model", required=True, help="model or deployment name")
+    camp.add_argument("--base-url", help="the model API's base URL")
+    camp.add_argument("--model", help="model or deployment name")
+    camp.add_argument(
+        "--chatbot",
+        metavar="FILE",
+        help="test your own chatbot, described in a JSON file, instead of a model API",
+    )
     camp.add_argument(
         "--api-key-env",
         default=DEFAULT_KEY_ENV,
@@ -207,12 +213,25 @@ def do_scan(args: argparse.Namespace, client: Client) -> int:
 
 
 def do_campaign(args: argparse.Namespace, client: Client) -> int:
+    target = None
+    if args.chatbot:
+        try:
+            target = load_chatbot(args.chatbot)
+        except ChatbotFileError as exc:
+            print(f"shadowprompt: {exc}", file=sys.stderr)
+            return EXIT_ERROR
+    elif not (args.base_url and args.model):
+        print("shadowprompt: give --base-url and --model, or --chatbot FILE", file=sys.stderr)
+        return EXIT_ERROR
     api_key = os.environ.get(args.api_key_env) or None
+    name = target.name if target else args.model
     settings = campaign_cmd.CampaignSettings(
         provider=args.provider,
-        base_url=args.base_url,
-        model=args.model,
+        base_url=target.url if target else args.base_url,
+        model=name,
         api_key=api_key,
+        chatbot=target.chatbot if target else None,
+        indirect_delivery=target.indirect_delivery if target else "inline",
         levels=args.levels,
         sample_size=args.sample_size,
         languages=args.languages,
@@ -234,7 +253,10 @@ def do_campaign(args: argparse.Namespace, client: Client) -> int:
         print(json.dumps({"min_score": args.min_score, **outcome.as_dict()}))
     else:
         score = "no score" if outcome.score is None else f"{outcome.score:g}/100"
-        print(f"\n{args.model}: {score} ({outcome.rating or 'unrated'}), status {outcome.status}")
+        print(f"\n{name}: {score} ({outcome.rating or 'unrated'}), status {outcome.status}")
+        for track in outcome.track_scores:
+            track_score = "-" if track["score"] is None else f"{track['score']:g}"
+            print(f"  {track['name']}: {track_score}")
         for ls in outcome.level_scores:
             level_score = "-" if ls["score"] is None else f"{ls['score']:g}"
             print(f"  {ls.get('code', ls['level'])} {ls['name']:40} {level_score}")
@@ -242,6 +264,12 @@ def do_campaign(args: argparse.Namespace, client: Client) -> int:
             print(f"\n{len(outcome.failures)} tests failed or partly failed:")
             for failure in outcome.failures[:20]:
                 print(f"  {failure['verdict']:8} {failure['id']:14} {failure['name']}")
+        if outcome.top_fixes:
+            print("\nWhat to fix first:")
+            for index, fix in enumerate(outcome.top_fixes[:3], 1):
+                print(f"  {index}. {fix['title']} ({fix['failed_tests']} failed)")
+        for why, count in outcome.skipped.items():
+            print(f"  Skipped {count}: {why}")
         if outcome.error:
             print(f"\nError: {outcome.error}")
         verdict = "FAILED" if failed else "passed"
@@ -261,7 +289,7 @@ def do_campaign(args: argparse.Namespace, client: Client) -> int:
         for ls in outcome.level_scores
     )
     _github_summary(
-        f"### ShadowPrompt Lab: {_cell(args.model)}\n\n"
+        f"### ShadowPrompt Lab: {_cell(name)}\n\n"
         f"**Score:** {outcome.score if outcome.score is not None else 'none'} "
         f"({outcome.rating or 'unrated'}), minimum {args.min_score:g}: "
         f"{'**failed**' if failed else 'passed'}.\n\n"
