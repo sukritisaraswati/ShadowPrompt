@@ -91,7 +91,7 @@ export default function Layout() {
       </main>
 
       <footer className="border-t border-slate-200 px-4 py-4 text-center text-xs text-slate-500 dark:border-slate-800">
-        ShadowPrompt v0.5.0 &middot; For authorized, educational, and defensive security
+        ShadowPrompt v0.6.0 &middot; For authorized, educational, and defensive security
         research only. It does not attack real users, websites, or production systems.
       </footer>
     </div>
