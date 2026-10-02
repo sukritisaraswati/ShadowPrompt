@@ -27,7 +27,7 @@ history and model comparison round it out.
 | Package | Status |
 | --- | --- |
 | 4.3 Obfuscation decoding | Complete |
-| 4.2 Multilingual coverage | Not started |
+| 4.2 Multilingual coverage | Complete |
 | 4.1 Local models | Not started |
 | 4.7 Custom payload upload | Not started |
 | 4.5 CLI and GitHub Action | Not started |
@@ -82,9 +82,14 @@ curl -X POST http://127.0.0.1:8000/api/v1/scan/demo-pages/multi_vector/scan
    other are also read together, which catches one instruction split across
    several elements. Findings recovered this way say how they were decoded.
    Binary data, hashes and non-Latin prose are left alone.
-5. **Detection.** 33 rules across 7 categories: instruction override, data
+5. **Detection.** 93 rules across 7 categories: instruction override, data
    exfiltration, unauthorised action, persona override, stealth instruction,
-   context injection, and chained payload setup. Rules live in
+   context injection, and chained payload setup. 33 are in English. The other 60
+   cover the most common injections (ignore previous instructions, new
+   instructions, reveal the system prompt, send the user's data, developer mode,
+   and keep this from the user) in Spanish, French, German, Portuguese, Italian,
+   Russian, Chinese, Japanese, Hindi, and Arabic. Rules for languages in other
+   scripts only run on text that contains that script. Rules live in
    `backend/app/services/scanner/data/detection_rules.json` and are validated at
    startup.
 6. **Scoring.** Each match is weighted by its rule and by where it was hidden,
@@ -110,8 +115,8 @@ curl -X POST http://127.0.0.1:8000/api/v1/scan/demo-pages/multi_vector/scan
    attack is sent. Supported formats are OpenAI-compatible APIs (OpenAI, Groq,
    Together, OpenRouter, vLLM and others), Anthropic, Google Gemini, and Azure
    OpenAI.
-2. **Configure.** Pick any of the five levels, every test or a sample per level,
-   and a timeout and retry count.
+2. **Configure.** Pick any of the five levels, any language packs, every test or
+   a sample per level, and a timeout and retry count.
 3. **Run.** Verdicts stream in live. Pause between tests, resume, or stop at any
    time; results so far are always kept.
 4. **Review.** See the 0 to 100 Security Score, a breakdown per level, and every
@@ -132,6 +137,16 @@ The payload library holds 135 tests:
 | 3, Adversarial Design | 40 | Hypotheticals, fiction, Base64 and ROT13, token splitting, fake system messages, nested roleplay, few-shot priming |
 | 4, Indirect Injection | 30 | The model acts as a web summariser; instructions hide in comments, hidden elements, alt text, meta tags, ARIA labels, data attributes, several places at once, or Base64 |
 | 5, Chained Attacks | 20 | Live multi-turn conversations: page-primed triggers, gradual context poisoning, split instructions, delayed keywords, reflected phishing links, and memory poisoning |
+
+**Language packs** add tests written in Spanish, French, German, Portuguese,
+Italian, Russian, Chinese, Japanese, Hindi, or Arabic: one each at Levels 1 to 4
+per language, 40 in all. They are opt-in, because a model that refuses an attack
+in English can still fall for the same attack in a language it was less
+carefully aligned in. The model's instructions stay in English, as in most real
+deployments, and the Level 4 pages are written in the pack's language. Refusals
+are recognised in every pack language, and a leaked code is a leak in any
+language. The tests live in
+`backend/app/services/lab/data/payloads_multilingual.json`.
 
 Every test is **canary-based**. The model is given something to protect, such as
 a made-up access code, the user's private email, or its own persona, and the
@@ -192,7 +207,8 @@ retries a declined request on a recommended model.
 
 A fake OpenAI-compatible model is included for development. In its default
 mixed mode it refuses naive attacks but falls for personas, fiction, encodings,
-fake system messages, and some hidden page instructions.
+fake system messages, attacks written in Hindi or Arabic, and some hidden page
+instructions.
 
 ```bash
 cd backend
@@ -408,7 +424,9 @@ looked up in a fixed allowlist and never used as file paths.
 
 ## Limitations
 
-- Rule-based detection cannot catch every paraphrase or non-English injection.
+- Rule-based detection cannot catch every paraphrase. Rules in other languages
+  cover the six most common injection ideas, not the full English set, and
+  languages outside the ten supported ones are not covered.
 - Static HTML scanning misses content that JavaScript generates after page load.
 - Common encodings are decoded, but encryption, a custom cipher, and letters
   separated only by spaces (`i g n o r e`) are not.

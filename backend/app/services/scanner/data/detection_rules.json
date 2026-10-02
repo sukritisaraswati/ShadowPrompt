@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "categories": {
     "instruction_override": {
       "label": "Instruction override",
@@ -379,6 +379,681 @@
       "case_sensitive": false,
       "patterns": [
         "\\b(?:in|for|during)\\s+(?:all\\s+|every\\s+)?(?:future|later|subsequent|following)\\s+(?:responses?|messages?|conversations?|turns?|sessions?|answers?)\\b"
+      ]
+    },
+    {
+      "id": "instruction_override.ignore_previous_es",
+      "category": "instruction_override",
+      "description": "Tells the model to ignore its earlier instructions (Spanish).",
+      "weight": 30,
+      "language": "es",
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:ignora\\w*|ignore[ns]?|olvida\\w*|olvide[ns]?|descarta\\w*|omite)\\b(?:\\s+\\w+){0,4}?\\s+(?:instrucciones|indicaciones|reglas|[óo]rdenes|directrices)\\s+(?:anteriores|previas|de\\s+arriba)\\b"
+      ]
+    },
+    {
+      "id": "instruction_override.new_instructions_es",
+      "category": "instruction_override",
+      "description": "Announces replacement instructions (Spanish).",
+      "weight": 20,
+      "language": "es",
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:nuevas|verdaderas|reales)\\s+instrucciones\\s*:"
+      ]
+    },
+    {
+      "id": "data_exfiltration.reveal_secret_es",
+      "category": "data_exfiltration",
+      "description": "Asks for the system prompt, a password or a secret key (Spanish).",
+      "weight": 30,
+      "language": "es",
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:revela\\w*|muestra\\w*|mu[ée]strame|dime|imprime|repite|comparte)\\b(?:\\s+\\w+){0,3}?\\s+(?:tu\\s+|el\\s+|la\\s+|tus\\s+)?(?:prompt\\s+(?:del|de)\\s+sistema|instrucciones\\s+(?:del\\s+sistema|iniciales|ocultas)|contrase[ñn]a|clave\\s+(?:secreta|de\\s+(?:la\\s+)?api)|c[óo]digo\\s+secreto)"
+      ]
+    },
+    {
+      "id": "data_exfiltration.user_data_es",
+      "category": "data_exfiltration",
+      "description": "Asks the model to output the user's email or personal data (Spanish).",
+      "weight": 25,
+      "language": "es",
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:responde|incluye|a[ñn]ade|agrega|env[íi]a|escribe|dime|revela|comparte)\\b[^.]{0,120}?\\b(?:(?:la\\s+)?direcci[óo]n\\s+de\\s+)?(?:correo(?:\\s+electr[óo]nico)?|e-?mail|datos\\s+personales|n[úu]mero\\s+de\\s+cuenta)\\s+del\\s+usuario"
+      ]
+    },
+    {
+      "id": "persona_override.special_mode_es",
+      "category": "persona_override",
+      "description": "Switches the model into a developer, god or unrestricted mode (Spanish).",
+      "weight": 25,
+      "language": "es",
+      "case_sensitive": false,
+      "patterns": [
+        "\\bmodo\\s+(?:desarrollador|dios|sin\\s+restricciones|sin\\s+censura|sin\\s+filtros)\\b",
+        "\\beres\\s+(?:ahora\\s+)?(?:un[ao]?\\s+)?(?:\\w+\\s+)?(?:sin\\s+(?:restricciones|censura|filtros|l[íi]mites))\\b"
+      ]
+    },
+    {
+      "id": "stealth_instruction.conceal_from_user_es",
+      "category": "stealth_instruction",
+      "description": "Tells the model to keep something from the user (Spanish).",
+      "weight": 30,
+      "language": "es",
+      "case_sensitive": false,
+      "patterns": [
+        "\\bno\\s+(?:se\\s+lo\\s+|le\\s+|les\\s+)?(?:digas|diga|menciones|mencione|reveles|revele|informes|informe|cuentes|cuente)\\b(?:\\s+\\w+){0,3}?\\s+(?:al\\s+usuario|a\\s+la\\s+usuaria|al\\s+lector)\\b",
+        "\\bsin\\s+(?:dec[íi]rselo|avisar|informar)\\s+al\\s+usuario\\b"
+      ]
+    },
+    {
+      "id": "instruction_override.ignore_previous_fr",
+      "category": "instruction_override",
+      "description": "Tells the model to ignore its earlier instructions (French).",
+      "weight": 30,
+      "language": "fr",
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:ignore[rz]?|oublie[rz]?|n[ée]glige[rz]?)\\b(?:\\s+\\w+){0,4}?\\s+(?:instructions|consignes|directives|r[èe]gles)\\s+(?:pr[ée]c[ée]dentes|ant[ée]rieures|ci-dessus)\\b"
+      ]
+    },
+    {
+      "id": "instruction_override.new_instructions_fr",
+      "category": "instruction_override",
+      "description": "Announces replacement instructions (French).",
+      "weight": 20,
+      "language": "fr",
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:nouvelles|vraies|v[ée]ritables)\\s+(?:instructions|consignes)\\s*:"
+      ]
+    },
+    {
+      "id": "data_exfiltration.reveal_secret_fr",
+      "category": "data_exfiltration",
+      "description": "Asks for the system prompt, a password or a secret key (French).",
+      "weight": 30,
+      "language": "fr",
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:r[ée]v[èe]le[rz]?|affiche[rz]?|montre[rz]?|donne[rz]?|r[ée]p[èe]te[rz]?|imprime[rz]?)\\b(?:[\\s-]+\\w+){0,3}?\\s+(?:ton\\s+|votre\\s+|le\\s+|la\\s+|tes\\s+|vos\\s+)?(?:prompt\\s+syst[èe]me|invite\\s+syst[èe]me|instructions\\s+(?:syst[èe]me|initiales|cach[ée]es)|mot\\s+de\\s+passe|cl[ée]\\s+(?:secr[èe]te|api|d['’]api)|code\\s+secret)"
+      ]
+    },
+    {
+      "id": "data_exfiltration.user_data_fr",
+      "category": "data_exfiltration",
+      "description": "Asks the model to output the user's email or personal data (French).",
+      "weight": 25,
+      "language": "fr",
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:r[ée]ponds|r[ée]pondez|inclus|ajoute|envoie|[ée]cris|donne|r[ée]v[èe]le|partage)\\b[^.]{0,120}?\\b(?:adresse\\s+e-?mail|adresse\\s+[ée]lectronique|courriel|donn[ée]es\\s+personnelles|num[ée]ro\\s+de\\s+compte)\\s+de\\s+l['’]utilisat(?:eur|rice)"
+      ]
+    },
+    {
+      "id": "persona_override.special_mode_fr",
+      "category": "persona_override",
+      "description": "Switches the model into a developer, god or unrestricted mode (French).",
+      "weight": 25,
+      "language": "fr",
+      "case_sensitive": false,
+      "patterns": [
+        "\\bmode\\s+(?:d[ée]veloppeur|dieu|sans\\s+restrictions?|sans\\s+censure|sans\\s+filtres?)\\b",
+        "\\btu\\s+es\\s+(?:maintenant\\s+|d[ée]sormais\\s+)?(?:une?\\s+)?(?:\\w+\\s+)?sans\\s+(?:restrictions?|censure|filtres?|limites?)\\b"
+      ]
+    },
+    {
+      "id": "stealth_instruction.conceal_from_user_fr",
+      "category": "stealth_instruction",
+      "description": "Tells the model to keep something from the user (French).",
+      "weight": 30,
+      "language": "fr",
+      "case_sensitive": false,
+      "patterns": [
+        "\\bne\\s+(?:le\\s+|la\\s+|lui\\s+|leur\\s+|en\\s+)?(?:dis|dites|mentionne\\w*|r[ée]v[èe]le\\w*|signale\\w*|informe\\w*|pr[ée]viens|pr[ée]venez)\\s+(?:\\w+\\s+)?(?:pas|jamais|rien)\\b[^.]{0,40}?\\b(?:utilisat(?:eur|rice)|lecteur)",
+        "\\bsans\\s+(?:le\\s+dire|en\\s+informer|pr[ée]venir|informer)\\s+(?:à\\s+)?l['’]utilisat(?:eur|rice)"
+      ]
+    },
+    {
+      "id": "instruction_override.ignore_previous_de",
+      "category": "instruction_override",
+      "description": "Tells the model to ignore its earlier instructions (German).",
+      "weight": 30,
+      "language": "de",
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:ignorier(?:e|en|t)?|vergiss|vergessen\\s+sie|missachte\\w*)\\b(?:\\s+\\w+){0,3}?\\s+(?:vorherigen|bisherigen|vorigen|fr[üu]heren|obigen)\\s+(?:Anweisungen|Instruktionen|Regeln|Befehle|Vorgaben)\\b"
+      ]
+    },
+    {
+      "id": "instruction_override.new_instructions_de",
+      "category": "instruction_override",
+      "description": "Announces replacement instructions (German).",
+      "weight": 20,
+      "language": "de",
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:neue|echte|tats[äa]chliche)\\s+(?:Anweisungen|Instruktionen)\\s*:"
+      ]
+    },
+    {
+      "id": "data_exfiltration.reveal_secret_de",
+      "category": "data_exfiltration",
+      "description": "Asks for the system prompt, a password or a secret key (German).",
+      "weight": 30,
+      "language": "de",
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:zeig(?:e|en)?|verrate\\w*|nenne\\w*|gib|wiederhole\\w*|enth[üu]lle\\w*|drucke\\w*)\\b(?:\\s+\\w+){0,3}?\\s+(?:deinen\\s+|ihren\\s+|den\\s+|das\\s+|dein\\s+|die\\s+)?(?:System-?Prompt|System-?Anweisungen|Passwort|Kennwort|geheimen?\\s+(?:Code|Schl[üu]ssel)|API-?(?:Schl[üu]ssel|Key))"
+      ]
+    },
+    {
+      "id": "data_exfiltration.user_data_de",
+      "category": "data_exfiltration",
+      "description": "Asks the model to output the user's email or personal data (German).",
+      "weight": 25,
+      "language": "de",
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:antworte\\w*|f[üu]ge|sende\\w*|schreibe?\\w*|nenne\\w*|verrate\\w*|teile\\w*|gib)\\b[^.]{0,120}?\\b(?:E-?Mail-?Adresse|E-?Mail|pers[öo]nlichen\\s+Daten|Kontonummer)\\s+(?:des|der)\\s+(?:Nutzers|Benutzers|Anwenders|Nutzerin|Benutzerin)\\b"
+      ]
+    },
+    {
+      "id": "persona_override.special_mode_de",
+      "category": "persona_override",
+      "description": "Switches the model into a developer, god or unrestricted mode (German).",
+      "weight": 25,
+      "language": "de",
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:Entwickler-?Modus|Gott-?Modus|uneingeschr[äa]nkte[nrs]?\\s+Modus)\\b",
+        "\\bdu\\s+bist\\s+(?:jetzt|nun|ab\\s+sofort)\\s+(?:eine?\\s+)?(?:uneingeschr[äa]nkte|unzensierte|ungefilterte)\\w*"
+      ]
+    },
+    {
+      "id": "stealth_instruction.conceal_from_user_de",
+      "category": "stealth_instruction",
+      "description": "Tells the model to keep something from the user (German).",
+      "weight": 30,
+      "language": "de",
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:sag|sage|erz[äa]hl|erz[äa]hle|erw[äa]hne|verrate|teile)\\s+(?:es\\s+|das\\s+|dies\\s+|davon\\s+)?(?:dem\\s+(?:Benutzer|Nutzer|Anwender|Leser)|der\\s+(?:Benutzerin|Nutzerin))\\s+(?:\\w+\\s+){0,3}?nichts?\\b",
+        "\\bohne\\s+(?:es\\s+)?(?:dem\\s+)?(?:Benutzer|Nutzer|Anwender)\\s+(?:davon\\s+)?(?:zu\\s+sagen|zu\\s+informieren|mitzuteilen|zu\\s+erw[äa]hnen)\\b"
+      ]
+    },
+    {
+      "id": "instruction_override.ignore_previous_pt",
+      "category": "instruction_override",
+      "description": "Tells the model to ignore its earlier instructions (Portuguese).",
+      "weight": 30,
+      "language": "pt",
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:ignor[ea]\\w*|esque[çc]a\\w*|desconsider[ea]\\w*)\\b(?:\\s+\\w+){0,4}?\\s+(?:instru[çc][õo]es|orienta[çc][õo]es|regras|ordens)\\s+(?:anteriores|pr[ée]vias)\\b"
+      ]
+    },
+    {
+      "id": "instruction_override.new_instructions_pt",
+      "category": "instruction_override",
+      "description": "Announces replacement instructions (Portuguese).",
+      "weight": 20,
+      "language": "pt",
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:novas|verdadeiras)\\s+instru[çc][õo]es\\s*:"
+      ]
+    },
+    {
+      "id": "data_exfiltration.reveal_secret_pt",
+      "category": "data_exfiltration",
+      "description": "Asks for the system prompt, a password or a secret key (Portuguese).",
+      "weight": 30,
+      "language": "pt",
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:revel[ea]|mostr[ea]|diga|imprima|repita|compartilhe)\\b(?:\\s+\\w+){0,3}?\\s+(?:o\\s+|a\\s+|seu\\s+|sua\\s+)?(?:prompt\\s+(?:do\\s+)?sistema|instru[çc][õo]es\\s+(?:do\\s+sistema|iniciais|ocultas)|senha|chave\\s+(?:secreta|de\\s+api|da\\s+api)|c[óo]digo\\s+secreto)"
+      ]
+    },
+    {
+      "id": "data_exfiltration.user_data_pt",
+      "category": "data_exfiltration",
+      "description": "Asks the model to output the user's email or personal data (Portuguese).",
+      "weight": 25,
+      "language": "pt",
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:responda|inclua|adicione|envie|escreva|diga|revele|compartilhe)\\b[^.]{0,120}?\\b(?:endere[çc]o\\s+de\\s+e-?mail|e-?mail|dados\\s+pessoais|n[úu]mero\\s+da\\s+conta)\\s+do\\s+(?:usu[áa]rio|utilizador)\\b"
+      ]
+    },
+    {
+      "id": "persona_override.special_mode_pt",
+      "category": "persona_override",
+      "description": "Switches the model into a developer, god or unrestricted mode (Portuguese).",
+      "weight": 25,
+      "language": "pt",
+      "case_sensitive": false,
+      "patterns": [
+        "\\bmodo\\s+(?:desenvolvedor|deus|sem\\s+restri[çc][õo]es|sem\\s+censura|sem\\s+filtros?)\\b",
+        "\\bvoc[êe]\\s+(?:agora\\s+)?[ée]\\s+(?:agora\\s+)?(?:uma?\\s+)?(?:\\w+\\s+)?sem\\s+(?:restri[çc][õo]es|censura|filtros?|limites)\\b"
+      ]
+    },
+    {
+      "id": "stealth_instruction.conceal_from_user_pt",
+      "category": "stealth_instruction",
+      "description": "Tells the model to keep something from the user (Portuguese).",
+      "weight": 30,
+      "language": "pt",
+      "case_sensitive": false,
+      "patterns": [
+        "\\bn[ãa]o\\s+(?:\\w+\\s+)?(?:diga|conte|mencione|revele|informe)\\b(?:\\s+\\w+){0,3}?\\s+(?:ao\\s+usu[áa]rio|[àa]\\s+usu[áa]ria|ao\\s+utilizador|ao\\s+leitor)\\b",
+        "\\bsem\\s+(?:avisar|informar|contar|dizer)\\s+(?:ao\\s+|o\\s+)?(?:usu[áa]rio|utilizador)\\b"
+      ]
+    },
+    {
+      "id": "instruction_override.ignore_previous_it",
+      "category": "instruction_override",
+      "description": "Tells the model to ignore its earlier instructions (Italian).",
+      "weight": 30,
+      "language": "it",
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:ignora\\w*|dimentica\\w*|trascura\\w*)\\b(?:\\s+\\w+){0,4}?\\s+(?:istruzioni|indicazioni|regole|direttive)\\s+(?:precedenti|anteriori|di\\s+sopra)\\b"
+      ]
+    },
+    {
+      "id": "instruction_override.new_instructions_it",
+      "category": "instruction_override",
+      "description": "Announces replacement instructions (Italian).",
+      "weight": 20,
+      "language": "it",
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:nuove|vere)\\s+istruzioni\\s*:"
+      ]
+    },
+    {
+      "id": "data_exfiltration.reveal_secret_it",
+      "category": "data_exfiltration",
+      "description": "Asks for the system prompt, a password or a secret key (Italian).",
+      "weight": 30,
+      "language": "it",
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:rivela\\w*|mostra\\w*|dimmi|stampa|ripeti|condividi)\\b(?:\\s+\\w+){0,3}?\\s+(?:il\\s+|la\\s+|tuo\\s+|tua\\s+)?(?:prompt\\s+(?:di\\s+)?sistema|istruzioni\\s+(?:di\\s+sistema|iniziali|nascoste)|password|chiave\\s+(?:segreta|api)|codice\\s+segreto)"
+      ]
+    },
+    {
+      "id": "data_exfiltration.user_data_it",
+      "category": "data_exfiltration",
+      "description": "Asks the model to output the user's email or personal data (Italian).",
+      "weight": 25,
+      "language": "it",
+      "case_sensitive": false,
+      "patterns": [
+        "\\b(?:rispondi|includi|aggiungi|invia|scrivi|dimmi|rivela|condividi)\\b[^.]{0,120}?\\b(?:indirizzo\\s+e-?mail|e-?mail|dati\\s+personali|numero\\s+di\\s+conto)\\s+dell['’]utente\\b"
+      ]
+    },
+    {
+      "id": "persona_override.special_mode_it",
+      "category": "persona_override",
+      "description": "Switches the model into a developer, god or unrestricted mode (Italian).",
+      "weight": 25,
+      "language": "it",
+      "case_sensitive": false,
+      "patterns": [
+        "\\bmodalit[àa]\\s+(?:sviluppatore|dio|senza\\s+restrizioni|senza\\s+censura|senza\\s+filtri)\\b",
+        "\\bsei\\s+(?:ora\\s+)?(?:una?\\s+)?(?:\\w+\\s+)?senza\\s+(?:restrizioni|censura|filtri|limiti)\\b"
+      ]
+    },
+    {
+      "id": "stealth_instruction.conceal_from_user_it",
+      "category": "stealth_instruction",
+      "description": "Tells the model to keep something from the user (Italian).",
+      "weight": 30,
+      "language": "it",
+      "case_sensitive": false,
+      "patterns": [
+        "\\bnon\\s+(?:\\w+\\s+)?(?:dire|dirlo|dirglielo|menzionare|rivelare|informare)\\b(?:\\s+\\w+){0,5}?\\s+(?:all['’]utente|al\\s+lettore)\\b",
+        "\\bsenza\\s+(?:dirlo|avvisare|informare)\\s+(?:all['’]utente|l['’]utente)\\b"
+      ]
+    },
+    {
+      "id": "instruction_override.ignore_previous_ru",
+      "category": "instruction_override",
+      "description": "Tells the model to ignore its earlier instructions (Russian).",
+      "weight": 30,
+      "language": "ru",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:игнорир\\w*|забудь\\w*|забуд\\w*|не\\s+обращай\\s+внимания\\s+на)(?:\\s+\\w+){0,3}?\\s+(?:предыдущие|прежние|прошлые|вышеуказанные|все\\s+предыдущие)\\s+(?:инструкции|указания|правила|команды)"
+      ]
+    },
+    {
+      "id": "instruction_override.new_instructions_ru",
+      "category": "instruction_override",
+      "description": "Announces replacement instructions (Russian).",
+      "weight": 20,
+      "language": "ru",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:новые|настоящие)\\s+инструкции\\s*:"
+      ]
+    },
+    {
+      "id": "data_exfiltration.reveal_secret_ru",
+      "category": "data_exfiltration",
+      "description": "Asks for the system prompt, a password or a secret key (Russian).",
+      "weight": 30,
+      "language": "ru",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:раскрой|покажи|выведи|скажи|назови|повтори|сообщи)(?:\\s+\\w+){0,3}?\\s+(?:свой\\s+|твой\\s+|свои\\s+)?(?:системн\\w+\\s+(?:промпт\\w*|подсказк\\w+|инструкци\\w+)|пароль|секретн\\w+\\s+(?:код|ключ)|api[\\s-]?ключ|ключ\\s+api)"
+      ]
+    },
+    {
+      "id": "data_exfiltration.user_data_ru",
+      "category": "data_exfiltration",
+      "description": "Asks the model to output the user's email or personal data (Russian).",
+      "weight": 25,
+      "language": "ru",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:ответь|включи|добавь|отправь|напиши|назови|раскрой|сообщи)[^.]{0,120}?(?:адрес\\w*\\s+электронной\\s+почты|электронн\\w+\\s+почт\\w+|e-?mail|личные\\s+данные|номер\\w*\\s+сч[её]та)\\s+пользовател\\w+"
+      ]
+    },
+    {
+      "id": "persona_override.special_mode_ru",
+      "category": "persona_override",
+      "description": "Switches the model into a developer, god or unrestricted mode (Russian).",
+      "weight": 25,
+      "language": "ru",
+      "case_sensitive": false,
+      "patterns": [
+        "режим\\w*\\s+(?:разработчика|бога|без\\s+(?:ограничений|цензуры|фильтров))",
+        "ты\\s+(?:теперь|отныне)\\s+(?:\\w+\\s+)?(?:без\\s+(?:ограничений|цензуры|фильтров)|неограниченн\\w+|нецензурн\\w+)"
+      ]
+    },
+    {
+      "id": "stealth_instruction.conceal_from_user_ru",
+      "category": "stealth_instruction",
+      "description": "Tells the model to keep something from the user (Russian).",
+      "weight": 30,
+      "language": "ru",
+      "case_sensitive": false,
+      "patterns": [
+        "не\\s+(?:говори|сообщай|рассказывай|упоминай|раскрывай)\\w*(?:\\s+\\w+){0,3}?\\s+(?:пользователю|пользователям|читателю)",
+        "без\\s+ведома\\s+пользовател\\w+"
+      ]
+    },
+    {
+      "id": "instruction_override.ignore_previous_zh",
+      "category": "instruction_override",
+      "description": "Tells the model to ignore its earlier instructions (Chinese).",
+      "weight": 30,
+      "language": "zh",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:忽略|无视|無視|忽视|忽視|忘记|忘記|忘掉|不要理会|不要理會)[^。！？\\n]{0,12}?(?:之前|以前|先前|上面|以上|上述|前面)[^。！？\\n]{0,8}?(?:指令|指示|说明|說明|规则|規則|命令|提示)"
+      ]
+    },
+    {
+      "id": "instruction_override.new_instructions_zh",
+      "category": "instruction_override",
+      "description": "Announces replacement instructions (Chinese).",
+      "weight": 20,
+      "language": "zh",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:新的?|真正的)(?:指令|指示)\\s*:"
+      ]
+    },
+    {
+      "id": "data_exfiltration.reveal_secret_zh",
+      "category": "data_exfiltration",
+      "description": "Asks for the system prompt, a password or a secret key (Chinese).",
+      "weight": 30,
+      "language": "zh",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:透露|泄露|泄漏|显示|顯示|告诉我|告訴我|输出|輸出|打印|重复|重複|说出|說出)[^。！？\\n]{0,10}?(?:系统提示|系統提示|系统指令|系統指令|系统消息|系統消息|密码|密碼|密钥|密鑰|秘密代码|秘密代碼|初始指令)"
+      ]
+    },
+    {
+      "id": "data_exfiltration.user_data_zh",
+      "category": "data_exfiltration",
+      "description": "Asks the model to output the user's email or personal data (Chinese).",
+      "weight": 25,
+      "language": "zh",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:回复|回覆|输出|輸出|提供|告诉|告訴|发送|發送|写出|寫出)[^。！？\\n]{0,30}?(?:用户|用戶|使用者)的?(?:电子邮件|電子郵件|邮箱|郵箱|电子邮箱|个人信息|個人資料|账号|帳號|账户|帳戶)"
+      ]
+    },
+    {
+      "id": "persona_override.special_mode_zh",
+      "category": "persona_override",
+      "description": "Switches the model into a developer, god or unrestricted mode (Chinese).",
+      "weight": 25,
+      "language": "zh",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:开发者模式|開發者模式|开发人员模式|上帝模式|无限制模式|無限制模式|越狱模式|越獄模式)",
+        "你现在是[^。！？\\n]{0,10}?(?:没有|沒有|不受)(?:任何)?(?:限制|约束|約束|审查|審查)"
+      ]
+    },
+    {
+      "id": "stealth_instruction.conceal_from_user_zh",
+      "category": "stealth_instruction",
+      "description": "Tells the model to keep something from the user (Chinese).",
+      "weight": 30,
+      "language": "zh",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:不要|别|別|切勿|不得|不可)(?:告诉|告訴|透露给|透露給|提及|提到)(?:给)?(?:用户|用戶|使用者|读者|讀者)",
+        "(?:不要|别|別|切勿)让(?:用户|用戶|使用者)(?:知道|发现|發現)"
+      ]
+    },
+    {
+      "id": "instruction_override.ignore_previous_ja",
+      "category": "instruction_override",
+      "description": "Tells the model to ignore its earlier instructions (Japanese).",
+      "weight": 30,
+      "language": "ja",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:以前|前|これまで|上記|先ほど|今まで|すべて|全て)の(?:すべての|全ての|以前の)?(?:指示|命令|ルール|指令|設定)(?:を|は)?(?:すべて|全て)?無視"
+      ]
+    },
+    {
+      "id": "instruction_override.new_instructions_ja",
+      "category": "instruction_override",
+      "description": "Announces replacement instructions (Japanese).",
+      "weight": 20,
+      "language": "ja",
+      "case_sensitive": false,
+      "patterns": [
+        "新しい(?:指示|命令)\\s*:"
+      ]
+    },
+    {
+      "id": "data_exfiltration.reveal_secret_ja",
+      "category": "data_exfiltration",
+      "description": "Asks for the system prompt, a password or a secret key (Japanese).",
+      "weight": 30,
+      "language": "ja",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:システムプロンプト|システム指示|初期指示|パスワード|秘密の(?:コード|鍵)|APIキー)[^。！？\\n]{0,10}?(?:を|は)?[^。！？\\n]{0,6}?(?:教えて|表示して|見せて|出力して|開示して|明かして|繰り返して)"
+      ]
+    },
+    {
+      "id": "data_exfiltration.user_data_ja",
+      "category": "data_exfiltration",
+      "description": "Asks the model to output the user's email or personal data (Japanese).",
+      "weight": 25,
+      "language": "ja",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:ユーザー|利用者)の(?:メールアドレス|個人情報|アカウント(?:ID|番号)?)[^。！？\\n]{0,20}?(?:返信|回答|出力|教え|表示|送信|書い)"
+      ]
+    },
+    {
+      "id": "persona_override.special_mode_ja",
+      "category": "persona_override",
+      "description": "Switches the model into a developer, god or unrestricted mode (Japanese).",
+      "weight": 25,
+      "language": "ja",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:開発者モード|デベロッパーモード|ゴッドモード|制限なしモード|脱獄モード)"
+      ]
+    },
+    {
+      "id": "stealth_instruction.conceal_from_user_ja",
+      "category": "stealth_instruction",
+      "description": "Tells the model to keep something from the user (Japanese).",
+      "weight": 30,
+      "language": "ja",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:ユーザー|利用者|読者)(?:に|には)(?:この|これを|このことを)?[^。！？\\n]{0,8}?(?:言わないで|伝えないで|知らせないで|教えないで|明かさないで)"
+      ]
+    },
+    {
+      "id": "instruction_override.ignore_previous_hi",
+      "category": "instruction_override",
+      "description": "Tells the model to ignore its earlier instructions (Hindi).",
+      "weight": 30,
+      "language": "hi",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:पिछले|पहले\\s+के|पूर्व|ऊपर\\s+के|उपरोक्त)\\s+(?:सभी\\s+|सारे\\s+)?(?:निर्देशों|निर्देश|आदेशों|नियमों)\\s+(?:को\\s+)?(?:अनदेखा|नज़?रअंदाज़?|भूल|इग्नोर)"
+      ]
+    },
+    {
+      "id": "instruction_override.new_instructions_hi",
+      "category": "instruction_override",
+      "description": "Announces replacement instructions (Hindi).",
+      "weight": 20,
+      "language": "hi",
+      "case_sensitive": false,
+      "patterns": [
+        "नए\\s+निर्देश\\s*:"
+      ]
+    },
+    {
+      "id": "data_exfiltration.reveal_secret_hi",
+      "category": "data_exfiltration",
+      "description": "Asks for the system prompt, a password or a secret key (Hindi).",
+      "weight": 30,
+      "language": "hi",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:सिस्टम\\s+प्रॉम्प्ट|सिस्टम\\s+प्रोम्प्ट|सिस्टम\\s+निर्देश|पासवर्ड|गुप्त\\s+(?:कोड|कुंजी)|एपीआई\\s+(?:कुंजी|की))[^।\\n]{0,20}?(?:बताओ|बताइए|बताएं|बताएँ|दिखाओ|दिखाइए|दिखाएं|प्रकट\\s+कर)"
+      ]
+    },
+    {
+      "id": "data_exfiltration.user_data_hi",
+      "category": "data_exfiltration",
+      "description": "Asks the model to output the user's email or personal data (Hindi).",
+      "weight": 25,
+      "language": "hi",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:उपयोगकर्ता|यूज़?र)\\s+(?:का|की|के)\\s+(?:ईमेल(?:\\s+पता)?|व्यक्तिगत\\s+जानकारी|खाता\\s+(?:संख्या|नंबर))[^।\\n]{0,30}?(?:लिखो|बताओ|भेजो|दिखाओ|लिखें|बताएं|बताएँ)"
+      ]
+    },
+    {
+      "id": "persona_override.special_mode_hi",
+      "category": "persona_override",
+      "description": "Switches the model into a developer, god or unrestricted mode (Hindi).",
+      "weight": 25,
+      "language": "hi",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:डेवलपर\\s+मोड|गॉड\\s+मोड|अप्रतिबंधित\\s+मोड)"
+      ]
+    },
+    {
+      "id": "stealth_instruction.conceal_from_user_hi",
+      "category": "stealth_instruction",
+      "description": "Tells the model to keep something from the user (Hindi).",
+      "weight": 30,
+      "language": "hi",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:उपयोगकर्ता|यूज़?र|पाठक)\\s+को\\s+(?:इसके\\s+बारे\\s+में\\s+|यह\\s+|ये\\s+)?(?:मत|न|ना)\\s+(?:बताओ|बताएं|बताएँ|बताना|बताइए|दिखाओ)"
+      ]
+    },
+    {
+      "id": "instruction_override.ignore_previous_ar",
+      "category": "instruction_override",
+      "description": "Tells the model to ignore its earlier instructions (Arabic).",
+      "weight": 30,
+      "language": "ar",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:تجاهل|تجاهلي|تجاهلوا|انس|انسى|إنس|اهمل|أهمل)(?:\\s+\\S+){0,3}?\\s+(?:التعليمات|الإرشادات|الارشادات|الأوامر|الاوامر|القواعد|التوجيهات)\\s+(?:السابقة|الماضية|أعلاه)"
+      ]
+    },
+    {
+      "id": "instruction_override.new_instructions_ar",
+      "category": "instruction_override",
+      "description": "Announces replacement instructions (Arabic).",
+      "weight": 20,
+      "language": "ar",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:تعليمات|التعليمات)\\s+(?:جديدة|الجديدة)\\s*:"
+      ]
+    },
+    {
+      "id": "data_exfiltration.reveal_secret_ar",
+      "category": "data_exfiltration",
+      "description": "Asks for the system prompt, a password or a secret key (Arabic).",
+      "weight": 30,
+      "language": "ar",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:اكشف|أظهر|اظهر|اعرض|أخبرني|اخبرني|كرر|اطبع)(?:\\s+\\S+){0,3}?\\s+(?:موجه\\s+النظام|تعليمات\\s+النظام|كلمة\\s+المرور|كلمة\\s+السر|المفتاح\\s+السري|الرمز\\s+السري|مفتاح\\s+API)"
+      ]
+    },
+    {
+      "id": "data_exfiltration.user_data_ar",
+      "category": "data_exfiltration",
+      "description": "Asks the model to output the user's email or personal data (Arabic).",
+      "weight": 25,
+      "language": "ar",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:أجب|اجب|أرسل|ارسل|اكتب|أضف|اضف|اكشف|أخبرني|اخبرني)[^.]{0,120}?(?:عنوان\\s+البريد\\s+الإلكتروني|البريد\\s+الإلكتروني|البيانات\\s+الشخصية|رقم\\s+الحساب)\\s+(?:لل|ل|الخاص\\s+ب)?(?:مستخدم|المستخدم)"
+      ]
+    },
+    {
+      "id": "persona_override.special_mode_ar",
+      "category": "persona_override",
+      "description": "Switches the model into a developer, god or unrestricted mode (Arabic).",
+      "weight": 25,
+      "language": "ar",
+      "case_sensitive": false,
+      "patterns": [
+        "(?:وضع\\s+المطور|وضع\\s+المطوّر|وضع\\s+الإله)",
+        "أنت\\s+الآن\\s+(?:\\S+\\s+)?(?:بلا|بدون)\\s+(?:قيود|رقابة)"
+      ]
+    },
+    {
+      "id": "stealth_instruction.conceal_from_user_ar",
+      "category": "stealth_instruction",
+      "description": "Tells the model to keep something from the user (Arabic).",
+      "weight": 30,
+      "language": "ar",
+      "case_sensitive": false,
+      "patterns": [
+        "لا\\s+(?:تخبر|تُخبر|تذكر|تكشف|تعلم|تُعلم)(?:\\s+\\S+){0,2}?\\s+(?:المستخدم|المستخدمة|القارئ)"
       ]
     }
   ]

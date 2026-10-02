@@ -16,6 +16,7 @@ from app.schemas.lab import (
     CampaignOut,
     CampaignPage,
     CampaignSummaryOut,
+    LanguagePackSummary,
     LevelScoreOut,
     LevelSummary,
     PayloadLibrarySummary,
@@ -25,6 +26,7 @@ from app.schemas.lab import (
 )
 from app.services.lab.payloads import AVAILABLE_LEVELS, LEVEL_INFO, PayloadLibrary
 from app.services.lab.scoring import RATINGS, rating_for
+from app.services.languages import language_name
 
 
 @dataclass(frozen=True)
@@ -148,6 +150,8 @@ def result_out(result: TestResult, library: PayloadLibrary) -> TestResultOut:
         name=spec.name if spec else result.payload_id,
         description=spec.description if spec else "",
         objective=spec.objective.value if spec else "unknown",
+        language=spec.language if spec else "en",
+        language_name=language_name(spec.language) if spec else "English",
         attack_text=payload.attack_text() if payload else "",
         verdict=result.verdict,
         response_summary=result.response_summary,
@@ -201,6 +205,21 @@ def library_summary(library: PayloadLibrary) -> PayloadLibrarySummary:
                 available=level in AVAILABLE_LEVELS,
             )
         )
+    packs = [
+        LanguagePackSummary(
+            code=code,
+            name=language_name(code),
+            test_count=len(tests),
+            level_counts={
+                level: sum(1 for p in tests if p.level == level)
+                for level in sorted({p.level for p in tests})
+            },
+        )
+        for code, tests in library.languages().items()
+    ]
     return PayloadLibrarySummary(
-        version=library.version, total_tests=len(library.payloads), levels=levels
+        version=library.version,
+        total_tests=sum(level.test_count for level in levels),
+        levels=levels,
+        languages=packs,
     )

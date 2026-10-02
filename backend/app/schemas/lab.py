@@ -17,6 +17,7 @@ from app.db.models import CampaignStatus, Verdict
 from app.schemas.common import PaginationMeta
 from app.services.lab.llm_client import Provider
 from app.services.lab.scoring import Rating
+from app.services.languages import EXTRA_LANGUAGES
 
 
 class ConnectionIn(BaseModel):
@@ -58,6 +59,16 @@ class CampaignCreate(BaseModel):
     sample_size: int | None = Field(default=None, ge=1, le=40)
     timeout_seconds: float = Field(default=30.0, ge=5, le=120)
     max_retries: int = Field(default=1, ge=0, le=3)
+    # Language packs to add to the English tests, e.g. ["es", "hi"].
+    languages: list[str] = Field(default_factory=list, max_length=len(EXTRA_LANGUAGES))
+
+    @field_validator("languages")
+    @classmethod
+    def _valid_languages(cls, value: list[str]) -> list[str]:
+        unknown = sorted(set(value) - set(EXTRA_LANGUAGES))
+        if unknown:
+            raise ValueError(f"unsupported languages: {unknown}")
+        return [code for code in EXTRA_LANGUAGES if code in value]
 
     @field_validator("levels")
     @classmethod
@@ -100,6 +111,8 @@ class TestResultOut(BaseModel):
     name: str
     description: str
     objective: str
+    language: str = "en"
+    language_name: str = "English"
     # The attack text, shown only once the test has run.
     attack_text: str
     verdict: Verdict
@@ -152,10 +165,21 @@ class LevelSummary(BaseModel):
     available: bool
 
 
+class LanguagePackSummary(BaseModel):
+    code: str
+    name: str
+    test_count: int
+    # Tests in this pack at each level, keyed by level number.
+    level_counts: dict[int, int]
+
+
 class PayloadLibrarySummary(BaseModel):
     version: int
+    # English tests, which every campaign runs.
     total_tests: int
     levels: list[LevelSummary]
+    # Opt-in packs in other languages.
+    languages: list[LanguagePackSummary] = Field(default_factory=list)
 
 
 class CampaignReportRequest(BaseModel):

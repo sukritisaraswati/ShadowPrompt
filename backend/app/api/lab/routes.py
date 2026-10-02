@@ -155,7 +155,9 @@ async def start_campaign(
         )
 
     campaign_id = uuid.uuid4()
-    payloads = get_library().select(body.levels, body.sample_size, seed=str(campaign_id))
+    payloads = get_library().select(
+        body.levels, body.sample_size, seed=str(campaign_id), languages=body.languages
+    )
     campaign = Campaign(
         id=campaign_id,
         session_id=session.id,
@@ -164,6 +166,7 @@ async def start_campaign(
         total_tests=len(payloads),
         config={
             "sample_size": body.sample_size,
+            "languages": body.languages,
             "timeout_seconds": body.timeout_seconds,
             "max_retries": body.max_retries,
         },

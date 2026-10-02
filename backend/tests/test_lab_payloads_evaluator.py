@@ -49,7 +49,10 @@ def test_library_has_the_blueprint_counts() -> None:
     assert len(LIB.for_level(3)) == 40
     assert len(LIB.for_level(4)) == 30
     assert len(LIB.for_level(5)) == 20
-    assert len(LIB.payloads) == 135
+    english = [p for p in LIB.payloads if p.language == "en"]
+    assert len(english) == 135
+    # Ten opt-in language packs of four tests each, Levels 1 to 4.
+    assert len(LIB.payloads) == 175
 
 
 def test_payload_ids_are_unique_and_every_entry_is_complete() -> None:

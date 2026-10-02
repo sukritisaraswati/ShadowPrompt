@@ -1,5 +1,6 @@
 /**
- * Campaign setup: choose levels, full suite or sample, timeouts and retries.
+ * Campaign setup: choose levels, optional language packs, full suite or
+ * sample, timeouts and retries.
  */
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
@@ -19,6 +20,7 @@ export default function Configure() {
   const { connection, isVerified, sessionId } = useSession();
   const [library, setLibrary] = useState<PayloadLibrarySummary | null>(null);
   const [levels, setLevels] = useState<number[]>([1]);
+  const [languages, setLanguages] = useState<string[]>([]);
   const [mode, setMode] = useState<"full" | "sample">("full");
   const [sampleSize, setSampleSize] = useState(5);
   const [timeoutSeconds, setTimeoutSeconds] = useState(30);
@@ -38,10 +40,14 @@ export default function Configure() {
 
   const testCount = useMemo(() => {
     if (!library) return 0;
+    const packs = (library.languages ?? []).filter((p) => languages.includes(p.code));
     return library.levels
       .filter((l) => levels.includes(l.level))
-      .reduce((sum, l) => sum + (mode === "sample" ? Math.min(sampleSize, l.test_count) : l.test_count), 0);
-  }, [library, levels, mode, sampleSize]);
+      .reduce((sum, l) => {
+        const pool = l.test_count + packs.reduce((n, p) => n + (p.level_counts[String(l.level)] ?? 0), 0);
+        return sum + (mode === "sample" ? Math.min(sampleSize, pool) : pool);
+      }, 0);
+  }, [library, levels, languages, mode, sampleSize]);
 
   if (!isVerified || !connection || !sessionId) {
     return (
@@ -64,6 +70,12 @@ export default function Configure() {
     );
   }
 
+  function toggleLanguage(code: string) {
+    setLanguages((current) =>
+      current.includes(code) ? current.filter((c) => c !== code) : [...current, code],
+    );
+  }
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     if (!connection || !sessionId || levels.length === 0) return;
@@ -75,6 +87,7 @@ export default function Configure() {
         sampleSize: mode === "sample" ? sampleSize : null,
         timeoutSeconds,
         maxRetries,
+        languages,
       });
       navigate(`/lab/running?campaign=${started.campaign_id}`);
     } catch (cause) {
@@ -116,6 +129,38 @@ export default function Configure() {
             ))}
           </ul>
         </fieldset>
+
+        {library?.languages && library.languages.length > 0 && (
+          <fieldset>
+            <legend className="text-sm font-semibold">Languages</legend>
+            <p className="mt-1 text-xs text-slate-500">
+              English tests always run. Add tests written in other languages: a model that refuses an attack in
+              English can still fall for the same attack in a language it was less carefully aligned in. Each pack
+              adds one test to each of Levels 1 to 4.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {library.languages.map((pack) => (
+                <label
+                  key={pack.code}
+                  className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1 text-sm ${
+                    languages.includes(pack.code)
+                      ? "border-accent-500 bg-accent-500/10"
+                      : "border-slate-200 dark:border-slate-800"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={languages.includes(pack.code)}
+                    onChange={() => toggleLanguage(pack.code)}
+                    disabled={busy}
+                  />
+                  {pack.name}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
 
         <fieldset>
           <legend className="text-sm font-semibold">Coverage</legend>

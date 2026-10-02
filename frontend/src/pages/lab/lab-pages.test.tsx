@@ -207,7 +207,29 @@ describe("Configure", () => {
       sampleSize: null,
       timeoutSeconds: 30,
       maxRetries: 1,
+      languages: [],
     });
+  });
+
+  it("adds language packs to the count and the request", async () => {
+    vi.spyOn(labApi, "getPayloadSummary").mockResolvedValue({
+      ...LIBRARY,
+      languages: [
+        { code: "es", name: "Spanish", test_count: 4, level_counts: { "1": 1, "2": 1, "3": 1, "4": 1 } },
+        { code: "hi", name: "Hindi", test_count: 4, level_counts: { "1": 1, "2": 1, "3": 1, "4": 1 } },
+      ],
+    });
+    const start = vi.spyOn(labApi, "startCampaign").mockResolvedValue({ campaign_id: "abc", status: "pending", total_tests: 22 });
+    renderAt("/lab/configure", "/lab/configure", <Connected><Configure /></Connected>);
+
+    await userEvent.click(await screen.findByRole("checkbox", { name: "Spanish" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Hindi" }));
+    expect(screen.getByRole("button", { name: /start campaign \(22 tests\)/i })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("checkbox", { name: "Hindi" }));
+    await userEvent.click(screen.getByRole("button", { name: /start campaign \(21 tests\)/i }));
+
+    await screen.findByText(/running page reached/i);
+    expect(start.mock.calls[0][2].languages).toEqual(["es"]);
   });
 });
 

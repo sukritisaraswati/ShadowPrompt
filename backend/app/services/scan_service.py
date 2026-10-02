@@ -21,7 +21,9 @@ from app.services.scanner.sources import SOURCE_INFO, SourceLocation
 
 # Always shown with results (blueprint 13.2: "Limitations notice: always shown").
 LIMITATIONS = [
-    "Detection is rule-based. Paraphrased, novel, or non-English injections can go unnoticed.",
+    "Detection is rule-based, in English and ten other languages (Spanish, French, German, "
+    "Portuguese, Italian, Russian, Chinese, Japanese, Hindi, Arabic). Paraphrased or novel "
+    "injections, and those in other languages, can go unnoticed.",
     "Only the static HTML is analysed. "
     "Content added by JavaScript after the page loads is not seen.",
     "Common encodings are decoded (Base64, hex, escapes, URL encoding, ROT13, reversed text, "

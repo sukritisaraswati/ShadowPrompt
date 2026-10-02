@@ -43,6 +43,8 @@ export interface CampaignOptions {
   sampleSize: number | null;
   timeoutSeconds: number;
   maxRetries: number;
+  /** Language packs to add to the English tests, e.g. ["es", "hi"]. */
+  languages?: string[];
 }
 
 export function startCampaign(
@@ -57,6 +59,7 @@ export function startCampaign(
     sample_size: options.sampleSize,
     timeout_seconds: options.timeoutSeconds,
     max_retries: options.maxRetries,
+    languages: options.languages ?? [],
   });
 }
 

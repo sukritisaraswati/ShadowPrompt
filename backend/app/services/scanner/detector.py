@@ -134,6 +134,8 @@ def _split_detections(
             return first + max(i for i, start in enumerate(starts) if start <= position)
 
         for rule in rules.rules:
+            if not rule.applies_to(joined):
+                continue
             for pattern in rule.patterns:
                 for match in pattern.finditer(joined):
                     lo = fragment_at(match.start())

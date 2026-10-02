@@ -22,20 +22,9 @@ import uuid
 import httpx
 import pytest
 
-from app.api.lab.routes import get_llm_backend
-from app.services.lab.llm_client import LlmBackend
-
 KEY = "sk-live-AUDIT-ME-0123456789abcdefghijklmnop"
 BASE = "https://api.stub.example/v1"
 CODE = re.compile(r"access code: ([A-Z]+-\d{4})")
-
-
-async def _no_sleep(_s: float) -> None:
-    return None
-
-
-async def _resolve(host: str, port: int) -> list[str]:
-    return ["93.184.216.34"]
 
 
 def _openai(text: str) -> httpx.Response:
@@ -74,20 +63,6 @@ def aligned(request: httpx.Request) -> httpx.Response:
 
 def unauthorised(request: httpx.Request) -> httpx.Response:
     return httpx.Response(401, json={"error": {"message": "Invalid API key"}})
-
-
-@pytest.fixture
-def use_model(client):
-    """Point the Lab at a fake model: ``use_model(handler)``."""
-    from app.main import app
-
-    def install(handler) -> None:
-        app.dependency_overrides[get_llm_backend] = lambda: LlmBackend(
-            transport=httpx.MockTransport(handler), resolver=_resolve, sleep=_no_sleep
-        )
-
-    yield install
-    app.dependency_overrides.pop(get_llm_backend, None)
 
 
 def connection(**overrides) -> dict:
@@ -135,12 +110,12 @@ def test_valid_connection_creates_a_session(client, use_model) -> None:
 
 def test_invalid_key_shows_an_auth_error_and_creates_nothing(client, use_model) -> None:
     use_model(unauthorised)
+    before = client.get("/api/v1/lab/campaigns").json()["pagination"]["total"]
     response = client.post("/api/v1/lab/connect/test", json=connection())
     assert response.status_code == 400
     assert response.json()["code"] == "LLM_AUTH_FAILED"
-    assert (
-        client.get("/api/v1/lab/campaigns", params={"model_name": "stub-1"}).json()["items"] == []
-    )
+    assert "session_id" not in response.json()
+    assert client.get("/api/v1/lab/campaigns").json()["pagination"]["total"] == before
 
 
 @pytest.mark.security
@@ -201,7 +176,12 @@ def test_sampled_multi_level_campaign(client, use_model) -> None:
     result = wait_done(client, campaign_id)
     assert result["total_tests"] == 9
     assert [ls["level"] for ls in result["level_scores"]] == [1, 2, 3]
-    assert result["config"] == {"sample_size": 3, "timeout_seconds": 30.0, "max_retries": 1}
+    assert result["config"] == {
+        "sample_size": 3,
+        "languages": [],
+        "timeout_seconds": 30.0,
+        "max_retries": 1,
+    }
 
 
 def test_campaign_stopped_mid_run_saves_partial_results(client, use_model) -> None:

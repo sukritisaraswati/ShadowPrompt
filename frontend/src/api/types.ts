@@ -271,6 +271,8 @@ export interface TestResult {
   name: string;
   description: string;
   objective: string;
+  language?: string;
+  language_name?: string;
   /** Attack text, shown only after the test ran. Render as text. */
   attack_text: string;
   verdict: Verdict;
@@ -311,8 +313,19 @@ export interface LevelSummary {
   available: boolean;
 }
 
+/** An opt-in pack of tests written in one language other than English. */
+export interface LanguagePackSummary {
+  code: string;
+  name: string;
+  test_count: number;
+  /** Tests in the pack at each level, keyed by level number. */
+  level_counts: Record<string, number>;
+}
+
 export interface PayloadLibrarySummary {
   version: number;
+  /** English tests, which every campaign runs. */
   total_tests: number;
   levels: LevelSummary[];
+  languages?: LanguagePackSummary[];
 }

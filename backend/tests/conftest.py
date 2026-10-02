@@ -74,3 +74,34 @@ def _reset_rate_limiter() -> Iterator[None]:
     limiter.reset()
     yield
     limiter.reset()
+
+
+async def _no_sleep(_s: float) -> None:
+    return None
+
+
+async def _public_resolve(host: str, port: int) -> list[str]:
+    return ["93.184.216.34"]
+
+
+@pytest.fixture
+def use_model(client):
+    """Point the Lab at a fake model: ``use_model(handler)``.
+
+    ``handler`` receives each ``httpx.Request`` the Lab sends and returns the
+    model's response, over a mock transport with a resolver that treats every
+    host as public.
+    """
+    import httpx
+
+    from app.api.lab.routes import get_llm_backend
+    from app.main import app
+    from app.services.lab.llm_client import LlmBackend
+
+    def install(handler) -> None:
+        app.dependency_overrides[get_llm_backend] = lambda: LlmBackend(
+            transport=httpx.MockTransport(handler), resolver=_public_resolve, sleep=_no_sleep
+        )
+
+    yield install
+    app.dependency_overrides.pop(get_llm_backend, None)

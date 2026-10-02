@@ -4,6 +4,10 @@ Rules live in a data file so they can be reviewed and tuned without touching
 code. The file is validated on load: a malformed rule, an unknown category, or
 a regex that fails to compile stops the application at startup rather than
 silently weakening detection.
+
+Each rule is written for one language. Rules for a language in a non-Latin
+script only run on text that contains that script, so adding languages costs
+almost nothing on pages that do not use them.
 """
 
 from __future__ import annotations
@@ -16,6 +20,8 @@ from functools import lru_cache
 from pathlib import Path
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+from app.services.languages import ENGLISH, LANGUAGE_NAMES, SCRIPT_HINTS
 
 RULES_PATH = Path(__file__).parent / "data" / "detection_rules.json"
 
@@ -43,6 +49,7 @@ class _RuleSpec(BaseModel):
     category: Category
     description: str = Field(min_length=1)
     weight: int = Field(ge=1, le=50)
+    language: str = ENGLISH
     case_sensitive: bool = False
     patterns: list[str] = Field(min_length=1)
 
@@ -50,6 +57,8 @@ class _RuleSpec(BaseModel):
     def _id_matches_category(self) -> _RuleSpec:
         if self.id.split(".")[0] != self.category.value:
             raise ValueError(f"rule {self.id} is filed under {self.category.value}")
+        if self.language not in LANGUAGE_NAMES:
+            raise ValueError(f"rule {self.id} has unknown language {self.language!r}")
         return self
 
 
@@ -93,8 +102,16 @@ class Rule:
     description: str
     weight: int
     patterns: tuple[re.Pattern[str], ...]
+    language: str = ENGLISH
+    # Text must contain this script before the rule is worth running.
+    requires: re.Pattern[str] | None = None
+
+    def applies_to(self, text: str) -> bool:
+        return self.requires is None or self.requires.search(text) is not None
 
     def search(self, text: str) -> re.Match[str] | None:
+        if not self.applies_to(text):
+            return None
         for pattern in self.patterns:
             match = pattern.search(text)
             if match:
@@ -126,6 +143,10 @@ def load_rules(path: Path = RULES_PATH) -> RuleSet:
                 description=rule.description,
                 weight=rule.weight,
                 patterns=compiled,
+                language=rule.language,
+                requires=re.compile(SCRIPT_HINTS[rule.language])
+                if rule.language in SCRIPT_HINTS
+                else None,
             )
         )
     categories = {

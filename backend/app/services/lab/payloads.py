@@ -1,6 +1,7 @@
 """The Lab payload library (blueprint section 12).
 
-Loaded from ``data/payloads.json`` once and validated in full: a malformed
+Loaded from ``data/payloads.json`` and the opt-in multilingual pack in
+``data/payloads_multilingual.json`` once, and validated in full: a malformed
 entry, or a Level 4 or 5 test whose attack page is missing, stops the
 application at startup rather than silently skipping a test. Payload text is
 never sent to the browser before a test has run; the public summary carries
@@ -18,12 +19,16 @@ Two conversation shapes exist:
   (few-shot priming). Level 4 attaches a crafted web page to the user turn.
 * ``live``: Level 5. Only the user's turns are scripted; the model's real
   replies fill the gaps, so later turns build on what it actually said.
+
+Every payload has a language. English tests always run; tests in other
+languages run only when a campaign asks for those languages.
 """
 
 from __future__ import annotations
 
 import json
 import random
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from enum import StrEnum
 from functools import cached_property, lru_cache
@@ -33,8 +38,10 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 from app.services.lab.llm_client import ChatMessage
+from app.services.languages import ENGLISH, LANGUAGE_NAMES
 
 PAYLOADS_PATH = Path(__file__).parent / "data" / "payloads.json"
+MULTILINGUAL_PATH = Path(__file__).parent / "data" / "payloads_multilingual.json"
 PAGES_DIR = Path(__file__).parent / "data" / "attack_pages"
 PAGE_PLACEHOLDER = "{page}"
 
@@ -82,8 +89,10 @@ class Turn(BaseModel):
 
 
 class PayloadSpec(BaseModel):
-    id: str = Field(pattern=r"^L[1-5]-\d{3}$")
+    # L1-001 for the core library, L1-ES-01 for a language pack.
+    id: str = Field(pattern=r"^L[1-5]-(?:\d{3}|[A-Z]{2}-\d{2})$")
     level: int = Field(ge=1, le=5)
+    language: str = ENGLISH
     category: str
     technique: str
     name: str = Field(min_length=1)
@@ -92,7 +101,9 @@ class PayloadSpec(BaseModel):
     conversation: Literal["single", "live"] = "single"
     system_context: str = Field(min_length=1)
     prompt: str | list[Turn]
-    html_page: str | None = Field(default=None, pattern=r"^L[45]-\d{3}_[a-z0-9_]+\.html$")
+    html_page: str | None = Field(
+        default=None, pattern=r"^L[45]-(?:\d{3}|[A-Z]{2}-\d{2})_[a-z0-9_]+\.html$"
+    )
     page_url: str | None = None
     # Words from the page's visible content; a reply that mentions them did
     # the legitimate summarising task.
@@ -106,6 +117,8 @@ class PayloadSpec(BaseModel):
     def _consistent(self) -> PayloadSpec:
         if not self.id.startswith(f"L{self.level}-"):
             raise ValueError(f"{self.id} is filed under level {self.level}")
+        if self.language not in LANGUAGE_NAMES:
+            raise ValueError(f"{self.id} has unknown language {self.language!r}")
         if self.category != LEVEL_INFO[self.level][1]:
             raise ValueError(f"{self.id} has category {self.category}")
         turns = self.prompt if isinstance(self.prompt, list) else []
@@ -174,6 +187,10 @@ class Payload:
     @property
     def level(self) -> int:
         return self.spec.level
+
+    @property
+    def language(self) -> str:
+        return self.spec.language
 
     @property
     def is_live(self) -> bool:
@@ -257,18 +274,40 @@ class PayloadLibrary:
     def by_id(self, payload_id: str) -> Payload | None:
         return next((p for p in self.payloads if p.id == payload_id), None)
 
-    def for_level(self, level: int) -> list[Payload]:
-        return [p for p in self.payloads if p.level == level]
+    def for_level(self, level: int, languages: Collection[str] | None = ()) -> list[Payload]:
+        """Tests at ``level``: English plus ``languages``, or every language for None."""
+        return [
+            p
+            for p in self.payloads
+            if p.level == level
+            and (languages is None or p.language == ENGLISH or p.language in languages)
+        ]
 
-    def select(self, levels: list[int], sample_size: int | None, seed: str) -> list[Payload]:
+    def languages(self) -> dict[str, list[Payload]]:
+        """Tests in each non-English language."""
+        out: dict[str, list[Payload]] = {}
+        for payload in self.payloads:
+            if payload.language != ENGLISH:
+                out.setdefault(payload.language, []).append(payload)
+        return out
+
+    def select(
+        self,
+        levels: list[int],
+        sample_size: int | None,
+        seed: str,
+        languages: Collection[str] = (),
+    ) -> list[Payload]:
         """Payloads for a campaign, level by level.
 
-        A sample is drawn per level with a seed, so the same campaign always
-        selects the same tests, while different campaigns get different ones.
+        English tests always run; tests in ``languages`` are added to each
+        level's pool. A sample is drawn per level with a seed, so the same
+        campaign always selects the same tests, while different campaigns get
+        different ones.
         """
         chosen: list[Payload] = []
         for level in sorted(set(levels)):
-            pool = self.for_level(level)
+            pool = self.for_level(level, languages)
             if sample_size is not None and sample_size < len(pool):
                 # Reproducible test selection, not security: plain random is right here.
                 rng = random.Random(f"{seed}:{level}")  # noqa: S311
@@ -277,10 +316,22 @@ class PayloadLibrary:
         return chosen
 
 
-def load_library(path: Path = PAYLOADS_PATH, pages_dir: Path = PAGES_DIR) -> PayloadLibrary:
+def load_library(
+    path: Path = PAYLOADS_PATH,
+    pages_dir: Path = PAGES_DIR,
+    extra_paths: Collection[Path] = (MULTILINGUAL_PATH,),
+) -> PayloadLibrary:
     spec = _LibraryFile.model_validate(json.loads(path.read_text(encoding="utf-8")))
+    items = list(spec.payloads)
+    for extra in extra_paths:
+        items.extend(
+            _LibraryFile.model_validate(json.loads(extra.read_text(encoding="utf-8"))).payloads
+        )
+    ids = [item.id for item in items]
+    if len(ids) != len(set(ids)):
+        raise ValueError("duplicate payload ids across library files")
     payloads = []
-    for item in spec.payloads:
+    for item in items:
         page = None
         if item.html_page:
             page_path = pages_dir / item.html_page
