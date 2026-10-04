@@ -49,6 +49,8 @@ jobs:
 
       - name: Install
         run: |
+          # WeasyPrint's font subsetting library, as in the Docker image.
+          sudo apt-get update && sudo apt-get install --no-install-recommends -y libharfbuzz-subset0
           python -m pip install --upgrade pip
           pip install -e ".[dev,postgres,pdf,layer3,render]"
           python -m playwright install --with-deps chromium-headless-shell

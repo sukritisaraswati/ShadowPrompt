@@ -17,7 +17,7 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
-from bs4 import BeautifulSoup, Comment, NavigableString, Tag
+from bs4 import BeautifulSoup, Comment, NavigableString, Tag, UnicodeDammit
 from bs4.element import CData, Declaration, Doctype, ProcessingInstruction
 
 from app.services.scanner.normalize import collapse
@@ -245,7 +245,15 @@ def _text_of(tag: Tag) -> str:
 
 
 def parse(document: bytes | str) -> BeautifulSoup:
-    """Parse statically. lxml detects the encoding of a byte string itself."""
+    """Parse statically.
+
+    Bytes are decoded here, from a byte order mark or the page's declared
+    charset, rather than by lxml: libxml2 builds differ in which charset labels
+    they know, and an unknown one such as "latin-1" silently becomes UTF-8.
+    """
+    if isinstance(document, bytes):
+        decoded = UnicodeDammit(document, is_html=True).unicode_markup
+        document = decoded if decoded is not None else document.decode("utf-8", "replace")
     return BeautifulSoup(document, "lxml")
 
 
