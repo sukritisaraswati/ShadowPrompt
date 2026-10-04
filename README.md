@@ -5,13 +5,6 @@
 **A security testing lab for LLM applications.**
 Attack your model or your own chatbot with direct and indirect prompt injection, see exactly where it breaks, and learn what to fix.
 
-[![CI](https://github.com/sukritisaraswati/ShadowPrompt/actions/workflows/ci.yml/badge.svg)](https://github.com/sukritisaraswati/ShadowPrompt/actions/workflows/ci.yml)
-![Version](https://img.shields.io/badge/version-0.6.0-1f5f96)
-![Python](https://img.shields.io/badge/python-3.11%2B-3776ab?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white)
-![React](https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=black)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-Compose-2496ed?logo=docker&logoColor=white)
 
 [Features](#features) ·
 [Quick start](#quick-start) ·
@@ -20,7 +13,6 @@ Attack your model or your own chatbot with direct and indirect prompt injection,
 [Security](#security-model) ·
 [Docs](#documentation)
 
-<img src="preview/p5-04-results-tracks-and-fixes.png" alt="Lab results: overall score, score per track and level, and what to fix first" width="860">
 
 </div>
 
