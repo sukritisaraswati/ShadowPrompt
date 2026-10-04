@@ -56,9 +56,7 @@ class CampaignOutcome:
             "total_tests": self.total,
             "completed_tests": self.completed,
             "unclear": self.unclear,
-            "track_scores": [
-                {"track": t["track"], "score": t["score"]} for t in self.track_scores
-            ],
+            "track_scores": [{"track": t["track"], "score": t["score"]} for t in self.track_scores],
             "level_scores": [
                 {"level": ls.get("code", ls["level"]), "name": ls["name"], "score": ls["score"]}
                 for ls in self.level_scores

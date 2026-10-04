@@ -11,7 +11,7 @@ from shadowprompt_cli import main as cli
 from shadowprompt_cli.chatbot import ChatbotFileError, load_chatbot
 from tests.test_cli import FakeServer, server  # noqa: F401 - the server fixture
 
-BOT_TOKEN = "Bearer ci-secret-TOKEN-0123456789"
+BOT_TOKEN = "Bearer ci-secret-TOKEN-0123456789"  # noqa: S105 - a test value
 
 
 def bot_file(tmp_path: Path, **overrides) -> Path:
@@ -64,12 +64,12 @@ def test_unreadable_files_are_explained(tmp_path) -> None:
         load_chatbot(str(bad))
 
 
-def routes(server: FakeServer) -> None:
-    server.route("POST", "/lab/connect/test", {"session_id": "sess-bot"})
-    server.route(
+def routes(fake: FakeServer) -> None:
+    fake.route("POST", "/lab/connect/test", {"session_id": "sess-bot"})
+    fake.route(
         "POST", "/lab/campaigns", lambda r: (202, {}, {"campaign_id": "camp-bot", "total_tests": 3})
     )
-    server.route(
+    fake.route(
         "GET",
         "/lab/campaigns/camp-bot",
         {

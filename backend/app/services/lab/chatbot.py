@@ -94,14 +94,12 @@ def validate_template(text: str, mode: ConversationMode) -> None:
         json.loads(text)
     except json.JSONDecodeError as exc:
         raise ValueError(
-            'the request template must be valid JSON, with placeholders in quotes, e.g. '
+            "the request template must be valid JSON, with placeholders in quotes, e.g. "
             '{"message": "{{message}}"}'
         ) from exc
     if mode is ConversationMode.SERVER and "{{conversation_id}}" not in text:
         raise ValueError("server-kept conversations need {{conversation_id}} in the template")
-    if mode is ConversationMode.HISTORY and not (
-        "{{history}}" in text or "{{messages}}" in text
-    ):
+    if mode is ConversationMode.HISTORY and not ("{{history}}" in text or "{{messages}}" in text):
         raise ValueError("sending the history needs {{history}} or {{messages}} in the template")
 
 
