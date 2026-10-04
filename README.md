@@ -15,7 +15,7 @@
 
 `direct injection` · `indirect injection` · `jailbreaks` · `SSRF-hardened` · `CI-ready`
 
-[Overview](#-overview) · [Attack matrix](#-attack-matrix) · [Quick start](#-quick-start) · [CI/CD](#-cicd) · [Security model](#-security-model) · [Docs](#-documentation)
+[Overview](#overview) · [Attack matrix](#attack-matrix) · [Quick start](#quick-start) · [CI/CD](#cicd) · [Security model](#security-model) · [Docs](#documentation)
 
 </div>
 
@@ -26,7 +26,9 @@
 
 ---
 
-## 🎯 Overview
+<a id="overview"></a>
+
+## <img src="https://api.iconify.design/mdi/target.svg?color=%232f81f7" height="24" alt=""> Overview
 
 LLM apps take orders in plain language, so anyone who can put text in front of the
 model can try to hijack it. That is **prompt injection**, ranked **#1 in the OWASP
@@ -35,7 +37,7 @@ harden, and measure again.
 
 ShadowPrompt is two offensive-security tools in one platform:
 
-| | 🧪 **ShadowPrompt Lab** | 🔍 **ShadowScan** |
+| | <img src="https://api.iconify.design/mdi/flask.svg?color=%232f81f7" height="16" alt=""> **ShadowPrompt Lab** | <img src="https://api.iconify.design/mdi/magnify.svg?color=%232f81f7" height="16" alt=""> **ShadowScan** |
 | --- | --- | --- |
 | **Mission** | Attack a model or chatbot and measure how easily it is manipulated | Inspect a web page for instructions hidden for an AI to read |
 | **Target** | OpenAI-compatible, Anthropic, Gemini, Azure OpenAI, local models, or **your own chatbot endpoint** | A URL, an uploaded HTML file, or a built-in demo page |
@@ -47,7 +49,9 @@ the **browser extension**.
 
 ---
 
-## ⚔️ Attack matrix
+<a id="attack-matrix"></a>
+
+## <img src="https://api.iconify.design/mdi/sword-cross.svg?color=%232f81f7" height="24" alt=""> Attack matrix
 
 Two threat models, scored separately. In **direct** injection the attacker is the
 user. In **indirect** injection the attacker poisons content the model reads, and
@@ -79,30 +83,34 @@ surviving harder attacks counts for more.
 
 | Score | 90–100 | 70–89 | 50–69 | < 50 |
 | --- | :---: | :---: | :---: | :---: |
-| **Rating** | 🟢 Secure | 🟡 Moderate | 🟠 Vulnerable | 🔴 Critical |
+| **Rating** | <img src="https://api.iconify.design/mdi/circle.svg?color=%2322c55e" height="12" alt=""> Secure | <img src="https://api.iconify.design/mdi/circle.svg?color=%23eab308" height="12" alt=""> Moderate | <img src="https://api.iconify.design/mdi/circle.svg?color=%23f97316" height="12" alt=""> Vulnerable | <img src="https://api.iconify.design/mdi/circle.svg?color=%23ef4444" height="12" alt=""> Critical |
 
 ---
 
-## 🧰 Capabilities
+<a id="capabilities"></a>
+
+## <img src="https://api.iconify.design/mdi/toolbox.svg?color=%232f81f7" height="24" alt=""> Capabilities
 
 **ShadowPrompt Lab**
-- 🤖 **Test your real chatbot.** Describe its endpoint with a JSON request template and a response path, plant a canary in its instructions, and attack it as users would reach it.
-- 🌐 **Hosted attack pages.** For bots that browse, poisoned pages are served at short-lived links the bot really fetches. A bot that never fetched the page is never given a fake pass.
-- 💬 **Live multi-turn attacks** that carry the model's real replies forward.
-- 🌍 **Language packs** in Spanish, French, German, Portuguese, Italian, Russian, Chinese, Japanese, Hindi and Arabic.
-- 🛠️ **Fix guidance** for 13 attack families, with a ranked *What to fix first* list.
-- 📦 **Custom test packs**, strictly validated, that run alongside the built-in library.
-- 📡 **Live progress** over Server-Sent Events, with pause, resume, history, side-by-side comparison, and HTML or PDF reports.
+- <img src="https://api.iconify.design/mdi/robot.svg?color=%232f81f7" height="16" alt=""> **Test your real chatbot.** Describe its endpoint with a JSON request template and a response path, plant a canary in its instructions, and attack it as users would reach it.
+- <img src="https://api.iconify.design/mdi/web.svg?color=%232f81f7" height="16" alt=""> **Hosted attack pages.** For bots that browse, poisoned pages are served at short-lived links the bot really fetches. A bot that never fetched the page is never given a fake pass.
+- <img src="https://api.iconify.design/mdi/message-text.svg?color=%232f81f7" height="16" alt=""> **Live multi-turn attacks** that carry the model's real replies forward.
+- <img src="https://api.iconify.design/mdi/earth.svg?color=%232f81f7" height="16" alt=""> **Language packs** in Spanish, French, German, Portuguese, Italian, Russian, Chinese, Japanese, Hindi and Arabic.
+- <img src="https://api.iconify.design/mdi/hammer-wrench.svg?color=%232f81f7" height="16" alt=""> **Fix guidance** for 13 attack families, with a ranked *What to fix first* list.
+- <img src="https://api.iconify.design/mdi/package-variant-closed.svg?color=%232f81f7" height="16" alt=""> **Custom test packs**, strictly validated, that run alongside the built-in library.
+- <img src="https://api.iconify.design/mdi/satellite-uplink.svg?color=%232f81f7" height="16" alt=""> **Live progress** over Server-Sent Events, with pause, resume, history, side-by-side comparison, and HTML or PDF reports.
 
 **ShadowScan**
-- 🕳️ **13 hiding places**, including HTML comments, hidden or off-screen elements, alt text, ARIA labels, meta tags, data attributes, noscript blocks and form fields, each weighted by how hidden it is.
-- 🧬 **De-obfuscation** of Base64, hex, escapes, URL encoding, ROT13, reversed text, leetspeak, look-alike letters, and instructions split across several elements.
-- 🧱 **JavaScript rendering** in a network-sandboxed Chromium that has no network access of its own.
-- 📊 **A deterministic 0–100 score** across five bands, from Clean to Critical.
+- **13 hiding places**, including HTML comments, hidden or off-screen elements, alt text, ARIA labels, meta tags, data attributes, noscript blocks and form fields, each weighted by how hidden it is.
+- <img src="https://api.iconify.design/mdi/dna.svg?color=%232f81f7" height="16" alt=""> **De-obfuscation** of Base64, hex, escapes, URL encoding, ROT13, reversed text, leetspeak, look-alike letters, and instructions split across several elements.
+- <img src="https://api.iconify.design/mdi/wall.svg?color=%232f81f7" height="16" alt=""> **JavaScript rendering** in a network-sandboxed Chromium that has no network access of its own.
+- <img src="https://api.iconify.design/mdi/chart-bar.svg?color=%232f81f7" height="16" alt=""> **A deterministic 0–100 score** across five bands, from Clean to Critical.
 
 ---
 
-## ⚡ Quick start
+<a id="quick-start"></a>
+
+## <img src="https://api.iconify.design/mdi/lightning-bolt.svg?color=%232f81f7" height="24" alt=""> Quick start
 
 **Docker (self-hosted):**
 
@@ -140,7 +148,9 @@ response path `reply`, and canary `PUFFIN-4821`.
 
 ---
 
-## 🔁 CI/CD
+<a id="cicd"></a>
+
+## <img src="https://api.iconify.design/mdi/repeat.svg?color=%232f81f7" height="24" alt=""> CI/CD
 
 Fail the build when your bot gets easier to break. The `shadowprompt` CLI uses only
 the Python standard library.
@@ -220,7 +230,9 @@ server origin at runtime.
 
 ---
 
-## 🛡️ Security model
+<a id="security-model"></a>
+
+## <img src="https://api.iconify.design/mdi/shield.svg?color=%232f81f7" height="24" alt=""> Security model
 
 A tool that fetches attacker-chosen URLs and parses hostile HTML is a target
 itself, so every surface is treated as adversarial. Each control is enforced by
@@ -228,18 +240,20 @@ tests; run them with `pytest -m security`.
 
 | Threat | Defence |
 | --- | --- |
-| 🔑 **Credential theft** | API keys and bot tokens are **never persisted**. They are held in memory for one run, scrubbed from errors and redacted from logs. An audit test hunts for the key in every table and log line, and a guard test blocks credential-like columns. |
-| 🌐 **SSRF** | Every resolved IP is checked, including private, loopback, metadata, IPv4-mapped, 6to4 and Teredo addresses. The connection is pinned to the checked IP, which defeats DNS rebinding. Each redirect hop is re-checked, with a 3-hop, 10 s and 5 MB cap. |
-| 💉 **Stored XSS** | Evidence is stored as text and escaped everywhere. React renders text only. Reports use forced autoescaping and a script-forbidding CSP, and their renderers refuse every URL. |
-| 🧨 **Hostile JavaScript** | The renderer uses a dead proxy and intercepts every request. Only guarded GETs are allowed, within 40 requests and 8 MB. Chromium's sandbox is on, with a 20 s deadline. |
-| 🎣 **Abuse of hosted pages** | Unguessable links, 24 h expiry, a `sandbox` CSP, noindex, no-store and a rate limit. |
-| 🌊 **Flooding and cost abuse** | Body-size limits at the HTTP layer, per-client rate limits, a concurrency cap, and a cap on judge calls. |
-| 📦 **Container breakout** | Only nginx is exposed. The database sits on an internal network. Containers run with no-new-privileges, all capabilities dropped, read-only root filesystems and resource limits. |
-| ⚙️ **CI script injection** | Action inputs are passed as environment variables, never interpolated into the script. |
+| <img src="https://api.iconify.design/mdi/key.svg?color=%232f81f7" height="16" alt=""> **Credential theft** | API keys and bot tokens are **never persisted**. They are held in memory for one run, scrubbed from errors and redacted from logs. An audit test hunts for the key in every table and log line, and a guard test blocks credential-like columns. |
+| <img src="https://api.iconify.design/mdi/web.svg?color=%232f81f7" height="16" alt=""> **SSRF** | Every resolved IP is checked, including private, loopback, metadata, IPv4-mapped, 6to4 and Teredo addresses. The connection is pinned to the checked IP, which defeats DNS rebinding. Each redirect hop is re-checked, with a 3-hop, 10 s and 5 MB cap. |
+| <img src="https://api.iconify.design/mdi/needle.svg?color=%232f81f7" height="16" alt=""> **Stored XSS** | Evidence is stored as text and escaped everywhere. React renders text only. Reports use forced autoescaping and a script-forbidding CSP, and their renderers refuse every URL. |
+| **Hostile JavaScript** | The renderer uses a dead proxy and intercepts every request. Only guarded GETs are allowed, within 40 requests and 8 MB. Chromium's sandbox is on, with a 20 s deadline. |
+| <img src="https://api.iconify.design/mdi/hook.svg?color=%232f81f7" height="16" alt=""> **Abuse of hosted pages** | Unguessable links, 24 h expiry, a `sandbox` CSP, noindex, no-store and a rate limit. |
+| <img src="https://api.iconify.design/mdi/waves.svg?color=%232f81f7" height="16" alt=""> **Flooding and cost abuse** | Body-size limits at the HTTP layer, per-client rate limits, a concurrency cap, and a cap on judge calls. |
+| <img src="https://api.iconify.design/mdi/package-variant-closed.svg?color=%232f81f7" height="16" alt=""> **Container breakout** | Only nginx is exposed. The database sits on an internal network. Containers run with no-new-privileges, all capabilities dropped, read-only root filesystems and resource limits. |
+| <img src="https://api.iconify.design/mdi/cog.svg?color=%232f81f7" height="16" alt=""> **CI script injection** | Action inputs are passed as environment variables, never interpolated into the script. |
 
 ---
 
-## 🏗️ Architecture
+<a id="architecture"></a>
+
+## <img src="https://api.iconify.design/mdi/crane.svg?color=%232f81f7" height="24" alt=""> Architecture
 
 ```
  Browser / CLI / Action / Extension
@@ -269,7 +283,9 @@ cd backend && pytest        cd frontend && npm test        cd cli && pytest     
 
 ---
 
-## ⚠️ Limitations
+<a id="limitations"></a>
+
+## <img src="https://api.iconify.design/mdi/alert.svg?color=%232f81f7" height="24" alt=""> Limitations
 
 - Passing the suite is not a certificate of security. It means the target survived *these* attacks.
 - Rule-based detection can miss novel paraphrases. Rules in other languages cover the six most common injection ideas.
@@ -280,7 +296,9 @@ cd backend && pytest        cd frontend && npm test        cd cli && pytest     
 
 ---
 
-## 📚 Documentation
+<a id="documentation"></a>
+
+## <img src="https://api.iconify.design/mdi/bookshelf.svg?color=%232f81f7" height="24" alt=""> Documentation
 
 - [Project blueprint v2](docs/ShadowPrompt_Project_Blueprint_v2.docx): architecture, attack model, evaluation and phased plan
 - [Original specification](docs/ShadowPrompt_Blueprint_v1.pdf)
